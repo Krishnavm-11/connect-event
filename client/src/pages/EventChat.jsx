@@ -6,7 +6,7 @@ import API from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { Send, X } from "lucide-react";
 
-const socket = io("http://localhost:5000");
+const socket = io("https://connect-event-backend.onrender.com");
 
 function EventChat() {
   const { id } = useParams();
