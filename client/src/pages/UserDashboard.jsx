@@ -140,12 +140,12 @@ function UserDashboard() {
                           ? new Date(item.event.date).toLocaleDateString()
                           : "N/A"}
                       </p>
-                      <button
-                        onClick={() => window.location.href = `/events/${item.event?._id}/chat`}
-                        className="mt-4 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-xl text-sm font-medium"
-                      >
-                        Open Chat
-                      </button>
+                      <Link
+  to={`/events/${item.event?._id}/chat`}
+  className="inline-block mt-4 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-xl text-sm font-medium"
+>
+  Open Chat
+</Link>
 
                     </div>
                   ))}
