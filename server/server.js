@@ -4,41 +4,53 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import http from "http";
 import { Server } from "socket.io";
+
 import connectDB from "./config/db.js";
+
 import authRoutes from "./routes/authRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import registrationRoutes from "./routes/registrationRoutes.js";
 import connectionRoutes from "./routes/connectionRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
-import Message from "./models/Message.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 
+import Message from "./models/Message.js";
+
 dotenv.config();
+
 connectDB();
 
 const app = express();
-
 const server = http.createServer(app);
+
+// Frontend URLs allowed to access the backend
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://connect-event-iota.vercel.app",
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+};
 
 const io = new Server(server, {
   cors: {
-    origin: "https://connect-event-cof4conry-krishnavm013-5093s-projects.vercel.app",
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   },
 });
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://connect-event-cof4conry-krishnavm013-5093s-projects.vercel.app",
-    ],
-    credentials: true,
-  })
-);
-
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -61,17 +73,23 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send_message", async (data) => {
-    const savedMessage = await Message.create({
-      sender: data.sender,
-      event: data.event,
-      message: data.message,
-    });
+    try {
+      const savedMessage = await Message.create({
+        sender: data.sender,
+        event: data.event,
+        message: data.message,
+      });
 
-    io.to(data.event).emit("receive_message", savedMessage);
-  });
+      const populatedMessage = await Message.findById(
+        savedMessage._id
+      ).populate("sender", "name email profession profileImage");
 
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+      io.to(data.event).emit("receive_message", populatedMessage);
+    } catch (error) {
+      socket.emit("message_error", {
+        message: error.message,
+      });
+    }
   });
 });
 
