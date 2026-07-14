@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Calendar, Users, Bell, MessageCircle, Ticket, UserCheck, UserX } from "lucide-react";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
@@ -141,11 +142,11 @@ function UserDashboard() {
                           : "N/A"}
                       </p>
                       <Link
-  to={`/events/${item.event?._id}/chat`}
-  className="inline-block mt-4 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-xl text-sm font-medium"
->
-  Open Chat
-</Link>
+                        to={`/events/${item.event?._id}/chat`}
+                        className="inline-block mt-4 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-xl text-sm font-medium"
+                      >
+                        Open Chat
+                      </Link>
 
                     </div>
                   ))}
