@@ -7,18 +7,16 @@ function AdminEvents() {
   const [events, setEvents] = useState([]);
 
   const getEvents = async () => {
-    try {
-      const res = await API.get("/admin/events");
+  try {
+    const res = await API.get("/admin/events");
 
-      const pendingEvents = res.data.filter(
-        (event) => event.status === "pending"
-      );
+    console.log("Admin Events:", res.data);
 
-      setEvents(pendingEvents);
-    } catch (error) {
-      console.log(error.response?.data?.message || error.message);
-    }
-  };
+    setEvents(res.data);
+  } catch (error) {
+    console.log(error.response?.data?.message || error.message);
+  }
+};
 
   useEffect(() => {
     getEvents();
@@ -43,10 +41,6 @@ function AdminEvents() {
       alert(error.response?.data?.message || "Reject failed");
     }
   };
-
-  useEffect(() => {
-    getEvents();
-  }, []);
 
   return (
     <AdminLayout>
