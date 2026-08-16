@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, CalendarDays, Users, UserCheck, ClipboardList, BarChart3, Mail, Settings } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Users, UserCheck, ClipboardList, BarChart3, Mail } from "lucide-react";
 
 function AdminSidebar() {
   const location = useLocation();
@@ -39,11 +39,6 @@ function AdminSidebar() {
       name: "Contact Messages",
       icon: Mail,
       path: "/admin/contacts",
-    },
-    {
-      name: "Settings",
-      icon: Settings,
-      path: "/admin/settings",
     },
   ];
 
