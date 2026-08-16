@@ -25,7 +25,6 @@ function AdminEvents() {
   const approveEvent = async (id) => {
     try {
       await API.put(`/admin/events/${id}/approve`);
-      alert("Event approved");
       getEvents();
     } catch (error) {
       alert(error.response?.data?.message || "Approve failed");
@@ -35,7 +34,6 @@ function AdminEvents() {
   const rejectEvent = async (id) => {
     try {
       await API.put(`/admin/events/${id}/reject`);
-      alert("Event rejected");
       getEvents();
     } catch (error) {
       alert(error.response?.data?.message || "Reject failed");
