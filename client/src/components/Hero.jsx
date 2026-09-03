@@ -1,10 +1,4 @@
-import {
-  Search,
-  ArrowRight,
-  Users,
-  CalendarDays,
-  MessageCircle,
-} from "lucide-react";
+import { Search,ArrowRight,Users,CalendarDays, MessageCircle,} from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -23,10 +17,12 @@ function Hero() {
         {/* Hero Content */}
         <div className="text-center max-w-4xl mx-auto">
 
+          {/* Badge */}
           <p className="inline-block bg-blue-500/10 text-blue-400 border border-blue-500/20 px-4 sm:px-5 py-2 rounded-full text-sm mb-6">
             Discover • Connect • Grow
           </p>
 
+          {/* Heading */}
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold leading-tight">
             Discover Amazing
             <span className="block text-blue-400">
@@ -34,19 +30,22 @@ function Hero() {
             </span>
           </h1>
 
+          {/* Description */}
           <p className="text-gray-400 text-base sm:text-lg md:text-xl mt-6 max-w-2xl mx-auto">
             Where great events bring great people together.
           </p>
 
           {/* Search */}
           <div className="mt-10 flex justify-center">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl flex items-center w-full max-w-xl shadow-xl overflow-hidden">
+            <div className="relative w-full max-w-xl">
 
+              {/* Search Icon */}
               <Search
                 size={20}
-                className="text-gray-400 ml-4 sm:ml-5 flex-shrink-0"
+                className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-gray-400"
               />
 
+              {/* Search Input */}
               <input
                 type="text"
                 placeholder="Search events..."
@@ -57,15 +56,44 @@ function Hero() {
                     handleSearch();
                   }
                 }}
-                className="flex-1 min-w-0 bg-transparent px-3 sm:px-4 py-4 outline-none text-white placeholder-gray-500"
+                className="
+                  w-full
+                  bg-slate-900
+                  border border-slate-700
+                  rounded-2xl
+                  pl-11 sm:pl-12
+                  pr-28 sm:pr-32
+                  py-4
+                  outline-none
+                  text-white
+                  placeholder-gray-500
+                  focus:border-blue-500
+                  transition
+                "
               />
 
+              {/* Search Button */}
               <button
                 onClick={handleSearch}
-                className="bg-blue-500 hover:bg-blue-600 transition-colors
-                px-3 sm:px-5 py-3 mr-1.5 sm:mr-2
-                rounded-xl flex items-center justify-center gap-1.5 sm:gap-2
-                text-sm sm:text-base font-medium shrink-0"
+                className="
+                  absolute
+                  right-2
+                  top-1/2
+                  -translate-y-1/2
+                  bg-blue-500
+                  hover:bg-blue-600
+                  text-white
+                  rounded-xl
+                  px-3 sm:px-5
+                  py-2.5
+                  flex
+                  items-center
+                  justify-center
+                  gap-1.5 sm:gap-2
+                  text-sm sm:text-base
+                  font-medium
+                  transition
+                "
               >
                 <span>Search</span>
                 <ArrowRight size={16} />
@@ -78,9 +106,12 @@ function Hero() {
         {/* Feature Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 md:mt-20">
 
-          {/* Card 1 */}
+          {/* Discover Events */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-            <CalendarDays className="text-blue-400" size={32} />
+            <CalendarDays
+              className="text-blue-400"
+              size={32}
+            />
 
             <h3 className="text-2xl font-bold mt-4">
               Discover Events
@@ -91,9 +122,12 @@ function Hero() {
             </p>
           </div>
 
-          {/* Card 2 */}
+          {/* Build Network */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-            <Users className="text-blue-400" size={32} />
+            <Users
+              className="text-blue-400"
+              size={32}
+            />
 
             <h3 className="text-2xl font-bold mt-4">
               Build Network
@@ -104,9 +138,12 @@ function Hero() {
             </p>
           </div>
 
-          {/* Card 3 */}
+          {/* Real-Time Chat */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-            <MessageCircle className="text-blue-400" size={32} />
+            <MessageCircle
+              className="text-blue-400"
+              size={32}
+            />
 
             <h3 className="text-2xl font-bold mt-4">
               Real-Time Chat
