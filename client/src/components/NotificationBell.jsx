@@ -1,78 +1,201 @@
-import { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Bell, CheckCheck, X } from "lucide-react";
 import API from "../services/api";
 
 function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const getNotifications = async () => {
+  const getNotifications = useCallback(async () => {
+    setLoading(true);
+
     try {
-      const res = await API.get("/notifications");
-      setNotifications(res.data);
+      const response = await API.get("/notifications");
+      const data = response.data;
+
+      setNotifications(
+        Array.isArray(data)
+          ? data
+          : data?.notifications || []
+      );
     } catch (error) {
-      console.log(error.response?.data?.message || error.message);
+      console.error(
+        "Load notifications error:",
+        error.response?.data?.message || error.message
+      );
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
   const markAsRead = async (id) => {
     try {
       await API.put(`/notifications/${id}/read`);
-      getNotifications();
+
+      setNotifications((current) =>
+        current.map((item) =>
+          item._id === id ? { ...item, isRead: true } : item
+        )
+      );
     } catch (error) {
-      console.log(error.response?.data?.message || error.message);
+      console.error(
+        "Mark notification as read error:",
+        error.response?.data?.message || error.message
+      );
     }
   };
 
   useEffect(() => {
     getNotifications();
-  }, []);
+  }, [getNotifications]);
 
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
+  // Allow the dashboard sidebar to open this navbar notification panel.
+  useEffect(() => {
+    const handleOpenNotifications = () => {
+      setOpen(true);
+      getNotifications();
+    };
+
+    window.addEventListener(
+      "connect-event:open-notifications",
+      handleOpenNotifications
+    );
+
+    return () => {
+      window.removeEventListener(
+        "connect-event:open-notifications",
+        handleOpenNotifications
+      );
+    };
+  }, [getNotifications]);
+
+  const unreadCount = notifications.filter(
+    (item) => !item.isRead
+  ).length;
 
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(!open)}
-        className="relative text-gray-300 hover:text-blue-400"
+        type="button"
+        onClick={() => {
+          setOpen((current) => !current);
+
+          if (!open) {
+            getNotifications();
+          }
+        }}
+        aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+        aria-expanded={open}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-300 transition hover:bg-slate-800 hover:text-blue-400"
       >
-        <Bell />
+        <Bell size={21} />
 
         {unreadCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-            {unreadCount}
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-slate-950">
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-4 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-xl overflow-hidden z-50">
-          <div className="p-4 border-b border-slate-700">
-            <h3 className="font-bold text-white">Notifications</h3>
-          </div>
+        <>
+          <button
+            type="button"
+            aria-label="Close notifications"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
 
-          {notifications.length === 0 ? (
-            <p className="text-gray-400 p-4">No notifications yet.</p>
-          ) : (
-            <div className="max-h-96 overflow-y-auto">
-              {notifications.map((item) => (
-                <div
-                  key={item._id}
-                  onClick={() => markAsRead(item._id)}
-                  className={`p-4 border-b border-slate-800 cursor-pointer hover:bg-slate-800 ${!item.isRead ? "bg-slate-800/70" : ""
-                    }`}
-                >
-                  <h4 className="text-white font-semibold">{item.title}</h4>
-                  <p className="text-gray-400 text-sm mt-1">{item.message}</p>
+          <div className="absolute right-0 z-50 mt-3 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 p-4">
+              <div>
+                <h3 className="font-bold text-white">Notifications</h3>
+                <p className="mt-1 text-xs text-slate-400">
+                  {unreadCount
+                    ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+                    : "You're all caught up"}
+                </p>
+              </div>
 
-                  {!item.isRead && (
-                    <p className="text-blue-400 text-xs mt-2">New</p>
-                  )}
-                </div>
-              ))}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close notification panel"
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X size={18} />
+              </button>
             </div>
-          )}
-        </div>
+
+            {loading && notifications.length === 0 ? (
+              <p className="p-5 text-sm text-slate-400">
+                Loading notifications...
+              </p>
+            ) : notifications.length === 0 ? (
+              <div className="p-8 text-center">
+                <Bell
+                  size={30}
+                  className="mx-auto text-slate-600"
+                />
+                <p className="mt-3 font-medium text-white">
+                  No notifications yet
+                </p>
+                <p className="mt-1 text-sm text-slate-400">
+                  Updates about your events will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[min(420px,65vh)] overflow-y-auto">
+                {notifications.map((item) => (
+                  <div
+                    key={item._id}
+                    className={`border-b border-slate-800 p-4 transition hover:bg-slate-800/70 ${
+                      !item.isRead ? "bg-blue-500/5" : ""
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                          !item.isRead
+                            ? "bg-blue-400"
+                            : "bg-slate-700"
+                        }`}
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-semibold text-white">
+                          {item.title || "Notification"}
+                        </h4>
+
+                        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-400">
+                          {item.message}
+                        </p>
+
+                        {!item.isRead && (
+                          <button
+                            type="button"
+                            onClick={() => markAsRead(item._id)}
+                            className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300"
+                          >
+                            <CheckCheck size={14} />
+                            Mark as read
+                          </button>
+                        )}
+
+                        {item.isRead && (
+                          <p className="mt-2 text-xs text-slate-500">
+                            Read
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
