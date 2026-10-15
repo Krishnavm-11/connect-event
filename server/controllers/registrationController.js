@@ -30,7 +30,30 @@ const createTicketNumber = () => {
     .toUpperCase()}`;
 };
 
-// Release expired reservations and restore event inventory
+// Get calendar date in India
+const getIndiaDateKey = (date = new Date()) => {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+};
+
+// Registration is allowed only before the event date
+const isRegistrationOpen = (eventDate) => {
+  if (!eventDate) return false;
+
+  const parsedDate = new Date(eventDate);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return false;
+  }
+
+  return getIndiaDateKey(parsedDate) > getIndiaDateKey();
+};
+
+// Release expired reservations and restore inventory
 const releaseExpiredReservations = async (eventId = null) => {
   const now = new Date();
 
@@ -67,9 +90,7 @@ const releaseExpiredReservations = async (eventId = null) => {
       }
     );
 
-    if (!expiredRegistration) {
-      continue;
-    }
+    if (!expiredRegistration) continue;
 
     const deletedSeats = await SeatReservation.deleteMany({
       registration: expiredRegistration._id,
@@ -86,7 +107,7 @@ const releaseExpiredReservations = async (eventId = null) => {
   }
 };
 
-// Create notification using the Notification schema
+// Create notification
 const createRegistrationNotification = async (
   userId,
   title,
@@ -100,7 +121,6 @@ const createRegistrationNotification = async (
       isRead: false,
     });
   } catch (error) {
-    // Notification failure must not undo a successful registration.
     console.error(
       "Registration notification error:",
       error.message
@@ -109,7 +129,6 @@ const createRegistrationNotification = async (
 };
 
 // GET /api/registrations/event/:eventId/seats
-// Return occupied seats for an event
 export const getEventSeats = async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -148,7 +167,6 @@ export const getEventSeats = async (req, res) => {
 };
 
 // POST /api/registrations/:eventId
-// Create seat reservation and Razorpay order
 export const registerForEvent = async (req, res) => {
   let registration = null;
   let seatHoldCreated = false;
@@ -201,6 +219,13 @@ export const registerForEvent = async (req, res) => {
       });
     }
 
+    // Close registration on the event day in India
+    if (!isRegistrationOpen(event.date)) {
+      return res.status(400).json({
+        message: "Registration is closed for this event.",
+      });
+    }
+
     const totalSeats = Number(event.totalSeats);
     const availableSeats = Number(event.availableSeats);
     const price = Number(event.price || 0);
@@ -236,9 +261,7 @@ export const registerForEvent = async (req, res) => {
           item.reservationExpiresAt &&
           new Date(item.reservationExpiresAt) <= now;
 
-        if (expired) {
-          return total;
-        }
+        if (expired) return total;
 
         return total + (item.selectedSeats || []).length;
       },
@@ -251,7 +274,7 @@ export const registerForEvent = async (req, res) => {
       });
     }
 
-    // Reject seats that are already held or booked
+    // Reject seats already held or booked
     const existingSeatReservations = await SeatReservation.find({
       event: eventId,
       seatNumber: { $in: seats },
@@ -390,7 +413,6 @@ export const registerForEvent = async (req, res) => {
         registration._id
       ).catch(() => null);
 
-      // Don't undo an already-confirmed registration
       if (current && current.status !== "registered") {
         await Registration.findByIdAndUpdate(
           registration._id,
@@ -443,7 +465,6 @@ export const registerForEvent = async (req, res) => {
 };
 
 // POST /api/registrations/verify-payment
-// Verify payment and confirm registration
 export const verifyRegistrationPayment = async (req, res) => {
   try {
     const {
@@ -476,7 +497,7 @@ export const verifyRegistrationPayment = async (req, res) => {
       });
     }
 
-    // Allow safe retries if payment is already confirmed
+    // Allow safe retries after successful payment
     if (
       registration.status === "registered" &&
       registration.paymentStatus === "paid"
@@ -542,7 +563,7 @@ export const verifyRegistrationPayment = async (req, res) => {
       });
     }
 
-    // Confirm payment directly with Razorpay
+    // Verify payment directly with Razorpay
     const razorpay = getRazorpay();
 
     const payment = await razorpay.payments.fetch(
@@ -559,6 +580,21 @@ export const verifyRegistrationPayment = async (req, res) => {
       return res.status(400).json({
         message:
           "Payment is not confirmed as captured. Check payment status before retrying.",
+      });
+    }
+
+    // Do not confirm a registration after the event registration deadline
+    const eventForPayment = await Event.findById(
+      registration.event
+    ).select("date");
+
+    if (
+      !eventForPayment ||
+      !isRegistrationOpen(eventForPayment.date)
+    ) {
+      return res.status(410).json({
+        message:
+          "Registration has closed for this event. If your payment was charged, please contact support for payment reconciliation.",
       });
     }
 
@@ -679,7 +715,6 @@ export const verifyRegistrationPayment = async (req, res) => {
 };
 
 // GET /api/registrations/ticket/:registrationId
-// Return the current user's confirmed ticket
 export const getTicket = async (req, res) => {
   try {
     const { registrationId } = req.params;
@@ -716,7 +751,6 @@ export const getTicket = async (req, res) => {
 };
 
 // DELETE /api/registrations/:eventId
-// Cancel current user's confirmed registration
 export const cancelRegistration = async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -791,7 +825,6 @@ export const cancelRegistration = async (req, res) => {
 };
 
 // GET /api/registrations/my-events
-// Get current user's registrations
 export const getMyRegistrations = async (req, res) => {
   try {
     const registrations = await Registration.find({
@@ -813,7 +846,6 @@ export const getMyRegistrations = async (req, res) => {
 };
 
 // GET /api/registrations/event/:eventId/attendees
-// Get confirmed attendees for an event
 export const getEventAttendees = async (req, res) => {
   try {
     const { eventId } = req.params;

@@ -1,39 +1,55 @@
+
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Calendar,
-  Users,
-  Bell,
-  MessageCircle,
+  LayoutDashboard,
   Ticket,
-  UserCheck,
-  UserX,
+  Users,
+  UserRoundCheck,
+  Bell,
+  CalendarDays,
+  MessageCircle,
+  MapPin,
+  Clock,
+  ArrowUpRight,
+  Menu,
+  X,
+  RefreshCw,
   CheckCircle2,
   XCircle,
-  Eye,
-  X,
-  MapPin,
+  Inbox,
+  ChevronRight,
 } from "lucide-react";
 
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
-function UserDashboard() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+const navigation = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "tickets", label: "My Tickets", icon: Ticket },
+  { id: "connections", label: "My Connections", icon: Users },
+  { id: "requests", label: "Connection Requests", icon: UserRoundCheck },
+  { id: "notifications", label: "Notifications", icon: Bell },
+];
 
-  const [myEvents, setMyEvents] = useState([]);
+function UserDashboard() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const [activeSection, setActiveSection] = useState("overview");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [registrations, setRegistrations] = useState([]);
   const [connections, setConnections] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState("");
   const [toast, setToast] = useState(null);
 
-  // Toast messages are handled directly in this file.
   const showToast = (message, type = "success") => {
     setToast({ message, type });
-
-    // Automatically hide the message after 3.5 seconds.
     window.setTimeout(() => {
       setToast((current) =>
         current?.message === message ? null : current
@@ -41,446 +57,749 @@ function UserDashboard() {
     }, 3500);
   };
 
-  const getMyEvents = useCallback(async () => {
-    setLoadingEvents(true);
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
 
     try {
-      const response = await API.get("/registrations/my-events");
+      const [eventsResult, connectionsResult, requestsResult] =
+        await Promise.allSettled([
+          API.get("/registrations/my-events"),
+          API.get("/connections/my-connections"),
+          API.get("/connections/requests"),
+        ]);
 
-      // The backend returns { registrations: [...] }.
-      const registrations = Array.isArray(response.data)
-        ? response.data
-        : response.data?.registrations || [];
+      if (eventsResult.status === "fulfilled") {
+        const data = eventsResult.value.data;
+        setRegistrations(
+          Array.isArray(data)
+            ? data
+            : data?.registrations || []
+        );
+      } else {
+        console.error(
+          "Could not load registrations:",
+          eventsResult.reason
+        );
+      }
 
-      setMyEvents(registrations);
+      if (connectionsResult.status === "fulfilled") {
+        const data = connectionsResult.value.data;
+        setConnections(
+          Array.isArray(data)
+            ? data
+            : data?.connections || []
+        );
+      } else {
+        console.error(
+          "Could not load connections:",
+          connectionsResult.reason
+        );
+      }
+
+      if (requestsResult.status === "fulfilled") {
+        const data = requestsResult.value.data;
+        setRequests(
+          Array.isArray(data)
+            ? data
+            : data?.requests || []
+        );
+      } else {
+        console.error(
+          "Could not load connection requests:",
+          requestsResult.reason
+        );
+      }
     } catch (error) {
-      showToast(
-        error.response?.data?.message || "Unable to load your tickets.",
-        "error"
-      );
-      setMyEvents([]);
+      console.error("Dashboard loading error:", error);
+      showToast("Unable to refresh your dashboard.", "error");
     } finally {
-      setLoadingEvents(false);
+      setLoading(false);
     }
   }, []);
-
-  const getConnections = useCallback(async () => {
-    try {
-      const response = await API.get("/connections/my-connections");
-      const data = response.data;
-
-      setConnections(
-        Array.isArray(data)
-          ? data
-          : data?.connections || []
-      );
-    } catch (error) {
-      console.error(
-        "Load connections error:",
-        error.response?.data?.message || error.message
-      );
-    }
-  }, []);
-
-  const getRequests = useCallback(async () => {
-    try {
-      const response = await API.get("/connections/requests");
-      const data = response.data;
-
-      setRequests(
-        Array.isArray(data)
-          ? data
-          : data?.requests || []
-      );
-    } catch (error) {
-      console.error(
-        "Load requests error:",
-        error.response?.data?.message || error.message
-      );
-    }
-  }, []);
-
-  const acceptRequest = async (id) => {
-    try {
-      await API.put(`/connections/accept/${id}`);
-      showToast("Connection request accepted.");
-      await Promise.all([getRequests(), getConnections()]);
-    } catch (error) {
-      showToast(
-        error.response?.data?.message || "Unable to accept the request.",
-        "error"
-      );
-    }
-  };
-
-  const rejectRequest = async (id) => {
-    try {
-      await API.put(`/connections/reject/${id}`);
-      showToast("Connection request rejected.");
-      await getRequests();
-    } catch (error) {
-      showToast(
-        error.response?.data?.message || "Unable to reject the request.",
-        "error"
-      );
-    }
-  };
 
   useEffect(() => {
-    getMyEvents();
-    getConnections();
-    getRequests();
-  }, [getMyEvents, getConnections, getRequests]);
+    loadDashboard();
+  }, [loadDashboard]);
 
-  // Only show registrations that have a confirmed ticket.
-  const confirmedTickets = myEvents.filter(
+  const confirmedTickets = registrations.filter(
     (item) =>
       item.status === "registered" &&
       ["paid", "free"].includes(item.paymentStatus) &&
       item.event
   );
 
-  const activePendingBookings = myEvents.filter(
+  const pendingBookings = registrations.filter(
     (item) => item.status === "pending"
   );
 
+  const handleNavigation = (section) => {
+    setSidebarOpen(false);
+
+    if (section === "notifications") {
+      setActiveSection(section);
+      window.dispatchEvent(
+        new Event("connect-event:open-notifications")
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    setActiveSection(section);
+  };
+
+  const handleRequest = async (requestId, action) => {
+    const actionKey = `${action}-${requestId}`;
+    setActionLoading(actionKey);
+
+    try {
+      await API.put(`/connections/${action}/${requestId}`);
+
+      setRequests((current) =>
+        current.filter((request) => request._id !== requestId)
+      );
+
+      if (action === "accept") {
+        showToast("Connection request accepted.");
+        await loadDashboard();
+      } else {
+        showToast("Connection request declined.");
+      }
+    } catch (error) {
+      showToast(
+        error.response?.data?.message ||
+          "Unable to process this request.",
+        "error"
+      );
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const getPerson = (item) =>
+    item?.sender || item?.requester || item?.from || item?.user || item;
+
+  const getPersonName = (item) => {
+    const person = getPerson(item);
+    return person?.name || person?.fullName || "ConnectEvent Member";
+  };
+
+  const getInitials = (name) =>
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+
+  const formatDate = (date) => {
+    if (!date) return "Date to be announced";
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "Date to be announced";
+    }
+
+    return parsedDate.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const pageTitle =
+    navigation.find((item) => item.id === activeSection)?.label ||
+    "Overview";
+
+  const firstName =
+    user?.name?.trim()?.split(" ")[0] || "there";
+
+  const StatCard = ({ icon: Icon, label, value, description }) => (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{label}</p>
+          <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
+            {value}
+          </p>
+          <p className="mt-2 text-xs text-slate-500">{description}</p>
+        </div>
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+          <Icon size={21} />
+        </div>
+      </div>
+    </div>
+  );
+
+  const EmptyState = ({ icon: Icon, title, description, action }) => (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+        <Icon size={25} />
+      </div>
+      <h3 className="mt-4 font-semibold text-slate-900">{title}</h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+        {description}
+      </p>
+      {action && <div className="mt-5">{action}</div>}
+    </div>
+  );
+
+  const PersonAvatar = ({ person, name }) => (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-100 text-sm font-bold text-orange-700">
+      {person?.profileImage || person?.avatar ? (
+        <img
+          src={person.profileImage || person.avatar}
+          alt={name}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        getInitials(name)
+      )}
+    </div>
+  );
+
+  const renderTicketCard = (item) => {
+    const event = item.event;
+    const eventId = event?._id;
+
+    return (
+      <article
+        key={item._id}
+        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+      >
+        <div className="relative h-40 overflow-hidden bg-slate-100">
+          {event?.banner || event?.image || event?.coverImage ? (
+            <img
+              src={event.banner || event.image || event.coverImage}
+              alt={event.title || "Event"}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-gradient-to-br from-orange-100 via-amber-50 to-slate-100">
+              <CalendarDays size={42} className="text-orange-400" />
+            </div>
+          )}
+
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm">
+            <CheckCircle2 size={14} />
+            Confirmed
+          </span>
+        </div>
+
+        <div className="p-5">
+          <h3 className="line-clamp-2 text-lg font-bold text-slate-900">
+            {event?.title || "Event"}
+          </h3>
+
+          <div className="mt-3 space-y-2 text-sm text-slate-500">
+            <p className="flex items-center gap-2">
+              <CalendarDays size={16} className="shrink-0 text-orange-500" />
+              {formatDate(event?.date || event?.startDate)}
+            </p>
+
+            <p className="flex items-center gap-2">
+              <MapPin size={16} className="shrink-0 text-orange-500" />
+              <span className="line-clamp-1">
+                {event?.location || event?.venue || "Location to be announced"}
+              </span>
+            </p>
+
+            {item.ticketNumber && (
+              <p className="text-xs text-slate-400">
+                Ticket: {item.ticketNumber}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(`/ticket/${item._id}`)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700"
+            >
+              <Ticket size={16} />
+              View Ticket
+            </button>
+
+            <button
+              type="button"
+              disabled={!eventId}
+              onClick={() => navigate(`/events/${eventId}/chat`)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <MessageCircle size={16} />
+              Event Chat
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  };
+
+  const renderConnections = () => {
+    if (connections.length === 0) {
+      return (
+        <EmptyState
+          icon={Users}
+          title="Your network starts here"
+          description="Connect with people who share your interests and attend events together."
+          action={
+            <Link
+              to="/events"
+              className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+            >
+              Explore Events <ArrowUpRight size={16} />
+            </Link>
+          }
+        />
+      );
+    }
+
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {connections.map((item) => {
+          const person = getPerson(item);
+          const name = getPersonName(item);
+
+          return (
+            <div
+              key={item._id || person?._id || name}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-5"
+            >
+              <PersonAvatar person={person} name={name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-slate-900">{name}</p>
+                <p className="mt-1 truncate text-sm text-slate-500">
+                  {person?.profession || person?.occupation || "ConnectEvent Member"}
+                </p>
+              </div>
+              <CheckCircle2 size={19} className="shrink-0 text-emerald-500" />
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderRequests = () => {
+    if (requests.length === 0) {
+      return (
+        <EmptyState
+          icon={Inbox}
+          title="No pending requests"
+          description="When someone sends you a connection request, it will appear here."
+        />
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {requests.map((request) => {
+          const person = getPerson(request);
+          const name = getPersonName(request);
+          const accepting = actionLoading === `accept-${request._id}`;
+          const rejecting = actionLoading === `reject-${request._id}`;
+
+          return (
+            <div
+              key={request._id}
+              className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center"
+            >
+              <PersonAvatar person={person} name={name} />
+
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-slate-900">{name}</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  {person?.profession || person?.occupation || "Would like to connect with you"}
+                </p>
+                {person?.email && (
+                  <p className="mt-1 truncate text-xs text-slate-400">
+                    {person.email}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={Boolean(actionLoading)}
+                  onClick={() => handleRequest(request._id, "accept")}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  <CheckCircle2 size={16} />
+                  {accepting ? "Accepting..." : "Accept"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={Boolean(actionLoading)}
+                  onClick={() => handleRequest(request._id, "reject")}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <XCircle size={16} />
+                  {rejecting ? "Declining..." : "Decline"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const sectionContent = () => {
+    if (loading) {
+      return (
+        <div className="flex min-h-64 flex-col items-center justify-center text-slate-500">
+          <RefreshCw size={28} className="animate-spin text-orange-600" />
+          <p className="mt-3 text-sm">Loading your dashboard...</p>
+        </div>
+      );
+    }
+
+    switch (activeSection) {
+      case "tickets":
+        return confirmedTickets.length ? (
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {confirmedTickets.map(renderTicketCard)}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Ticket}
+            title="No confirmed tickets yet"
+            description="Discover an event that interests you and your confirmed tickets will appear here."
+            action={
+              <Link
+                to="/events"
+                className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+              >
+                Explore Events <ArrowUpRight size={16} />
+              </Link>
+            }
+          />
+        );
+
+      case "connections":
+        return renderConnections();
+
+      case "requests":
+        return renderRequests();
+
+      case "overview":
+      default:
+        return (
+          <div className="space-y-8">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                icon={Ticket}
+                label="Confirmed Tickets"
+                value={confirmedTickets.length}
+                description="Your confirmed event bookings"
+              />
+              <StatCard
+                icon={Clock}
+                label="Pending Bookings"
+                value={pendingBookings.length}
+                description="Bookings awaiting confirmation"
+              />
+              <StatCard
+                icon={Users}
+                label="My Connections"
+                value={connections.length}
+                description="People in your network"
+              />
+              <StatCard
+                icon={UserRoundCheck}
+                label="New Requests"
+                value={requests.length}
+                description="Connection requests to review"
+              />
+            </div>
+
+            {pendingBookings.length > 0 && (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <Clock size={20} className="mt-0.5 shrink-0 text-amber-600" />
+                <div>
+                  <h3 className="font-semibold text-amber-900">
+                    You have pending bookings
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-amber-800">
+                    {pendingBookings.length} booking
+                    {pendingBookings.length === 1 ? " is" : "s are"} still pending.
+                    Check the event details and booking status before relying on a ticket.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <section>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Your Upcoming Events
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Your most recent confirmed tickets
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleNavigation("tickets")}
+                  className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-orange-600 hover:text-orange-700"
+                >
+                  View all <ChevronRight size={17} />
+                </button>
+              </div>
+
+              {confirmedTickets.length ? (
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {confirmedTickets.slice(0, 3).map(renderTicketCard)}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={CalendarDays}
+                  title="Your next event is waiting"
+                  description="Browse upcoming events and find something worth attending."
+                  action={
+                    <Link
+                      to="/events"
+                      className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+                    >
+                      Discover Events <ArrowUpRight size={16} />
+                    </Link>
+                  }
+                />
+              )}
+            </section>
+
+            <section>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Connection Requests
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Build your event community
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleNavigation("requests")}
+                  className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-orange-600 hover:text-orange-700"
+                >
+                  View all <ChevronRight size={17} />
+                </button>
+              </div>
+
+              {requests.length ? renderRequests() : (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
+                  You're all caught up. New connection requests will appear here.
+                </div>
+              )}
+            </section>
+          </div>
+        );
+    }
+  };
+
   return (
-    <>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       <Navbar />
 
-      {/* Inline toast: no separate component/file and no alert() */}
       {toast && (
         <div
           role="status"
-          aria-live="polite"
-          className={`fixed top-5 right-4 z-[100] max-w-sm w-[calc(100%-2rem)] rounded-2xl border p-4 shadow-2xl flex items-start gap-3 ${
+          className={`fixed right-4 top-20 z-[100] flex max-w-sm items-center gap-3 rounded-xl border px-4 py-3 shadow-xl ${
             toast.type === "error"
-              ? "bg-red-950 border-red-500/40 text-red-100"
-              : "bg-emerald-950 border-emerald-500/40 text-emerald-100"
+              ? "border-red-200 bg-white text-red-700"
+              : "border-emerald-200 bg-white text-emerald-700"
           }`}
         >
           {toast.type === "error" ? (
-            <XCircle className="shrink-0 text-red-400" size={22} />
+            <XCircle size={20} className="shrink-0" />
           ) : (
-            <CheckCircle2
-              className="shrink-0 text-emerald-400"
-              size={22}
-            />
+            <CheckCircle2 size={20} className="shrink-0" />
           )}
-
-          <p className="text-sm flex-1">{toast.message}</p>
-
+          <p className="flex-1 text-sm font-medium">{toast.message}</p>
           <button
             type="button"
+            aria-label="Dismiss message"
             onClick={() => setToast(null)}
-            aria-label="Close message"
-            className="opacity-70 hover:opacity-100"
+            className="rounded-lg p-1 hover:bg-slate-100"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
       )}
 
-      <main className="min-h-screen bg-slate-950 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <section className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-slate-800 rounded-3xl p-6 sm:p-8">
-            <p className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
-              Your personal space
+      <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+        <div className="mb-6 flex items-center justify-between gap-4 lg:hidden">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
+              Member dashboard
             </p>
-
-            <h1 className="text-3xl sm:text-4xl font-bold mt-3">
-              Welcome back,{" "}
-              <span className="text-blue-400">
-                {user?.name || "Member"}
-              </span>{" "}
-              👋
+            <h1 className="mt-1 text-xl font-bold text-slate-900">
+              Welcome, {firstName}
             </h1>
+          </div>
 
-            <p className="text-gray-300 mt-3">
-              Manage your event bookings, tickets, connections and conversations.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => navigate("/events")}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-500 hover:bg-blue-600 px-5 py-3 font-semibold transition"
-            >
-              <Calendar size={18} />
-              Explore Events
-            </button>
-          </section>
-
-          {/* Dashboard summary */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mt-8">
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl">
-              <Ticket className="text-blue-400" size={30} />
-              <h2 className="text-3xl font-bold mt-4">
-                {confirmedTickets.length}
-              </h2>
-              <p className="text-gray-400 mt-1">Confirmed Bookings</p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl">
-              <Users className="text-blue-400" size={30} />
-              <h2 className="text-3xl font-bold mt-4">
-                {connections.length}
-              </h2>
-              <p className="text-gray-400 mt-1">Connections</p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl">
-              <Bell className="text-blue-400" size={30} />
-              <h2 className="text-3xl font-bold mt-4">{requests.length}</h2>
-              <p className="text-gray-400 mt-1">Connection Requests</p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl">
-              <MessageCircle className="text-blue-400" size={30} />
-              <h2 className="text-3xl font-bold mt-4">—</h2>
-              <p className="text-gray-400 mt-1">Event Chats</p>
-            </div>
-          </section>
-
-          {/* All confirmed tickets */}
-          <section className="mt-10 bg-slate-900 border border-slate-800 p-5 sm:p-7 rounded-3xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
-                  <Ticket size={24} />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">My Tickets</h2>
-                  <p className="text-gray-400 text-sm mt-1">
-                    View all your confirmed event tickets.
-                  </p>
-                </div>
-              </div>
-
-              <span className="text-sm text-gray-400">
-                {confirmedTickets.length} confirmed
-              </span>
-            </div>
-
-            {loadingEvents ? (
-              <p className="text-gray-400 py-6">Loading your tickets...</p>
-            ) : confirmedTickets.length === 0 ? (
-              <div className="text-center py-10 border border-dashed border-slate-700 rounded-2xl">
-                <Ticket className="mx-auto text-gray-500" size={38} />
-                <p className="font-semibold mt-4">No confirmed tickets yet</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Your tickets will appear here after your booking is confirmed.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigate("/events")}
-                  className="mt-5 bg-blue-500 hover:bg-blue-600 rounded-xl px-5 py-3 font-semibold"
-                >
-                  Browse Events
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {confirmedTickets.map((item) => (
-                  <article
-                    key={item._id}
-                    className="overflow-hidden bg-slate-800/70 border border-slate-700 rounded-2xl"
-                  >
-                    {item.event?.banner && (
-                      <img
-                        src={item.event.banner}
-                        alt={item.event.title || "Event banner"}
-                        className="w-full h-40 object-cover"
-                      />
-                    )}
-
-                    <div className="p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <h3 className="text-xl font-bold">
-                          {item.event?.title || "Event"}
-                        </h3>
-
-                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-400 px-3 py-1 text-xs font-semibold">
-                          <CheckCircle2 size={14} />
-                          Confirmed
-                        </span>
-                      </div>
-
-                      <p className="text-sm text-gray-400 mt-3 flex items-center gap-2">
-                        <Calendar size={16} />
-                        {item.event?.date
-                          ? new Date(item.event.date).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              }
-                            )
-                          : "Date unavailable"}
-                        {item.event?.time ? ` · ${item.event.time}` : ""}
-                      </p>
-
-                      <p className="text-sm text-gray-400 mt-2 flex items-center gap-2">
-                        <MapPin size={16} />
-                        {item.event?.venue || "Venue unavailable"}
-                        {item.event?.location
-                          ? `, ${item.event.location}`
-                          : ""}
-                      </p>
-
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div className="bg-slate-900 rounded-xl p-3">
-                          <p className="text-xs text-gray-500">Seats</p>
-                          <p className="font-semibold mt-1">
-                            {item.selectedSeats?.length
-                              ? item.selectedSeats
-                                  .map((seat) => `#${seat}`)
-                                  .join(", ")
-                              : "Not listed"}
-                          </p>
-                        </div>
-
-                        <div className="bg-slate-900 rounded-xl p-3">
-                          <p className="text-xs text-gray-500">Total paid</p>
-                          <p className="font-semibold mt-1">
-                            ₹{Number(item.amount || 0).toLocaleString("en-IN")}
-                          </p>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-gray-500 mt-4 break-all">
-                        Ticket number: {item.ticketNumber || "Pending"}
-                      </p>
-
-                      <div className="flex flex-wrap gap-3 mt-5">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/ticket/${item._id}`)}
-                          className="inline-flex items-center justify-center gap-2 flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl px-4 py-3 text-sm font-semibold transition"
-                        >
-                          <Eye size={17} />
-                          View Ticket
-                        </button>
-
-                        <Link
-                          to={`/events/${item.event?._id}/chat`}
-                          className="inline-flex items-center justify-center gap-2 flex-1 bg-slate-700 hover:bg-slate-600 rounded-xl px-4 py-3 text-sm font-semibold transition"
-                        >
-                          <MessageCircle size={17} />
-                          Open Chat
-                        </Link>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-
-            {activePendingBookings.length > 0 && (
-              <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-                You have {activePendingBookings.length} booking
-                {activePendingBookings.length > 1 ? "s" : ""} awaiting confirmation.
-                A ticket will appear here after the booking is confirmed.
-              </div>
-            )}
-          </section>
-
-          {/* Connections and requests */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-10">
-            <div className="bg-slate-900 border border-slate-800 p-6 sm:p-7 rounded-3xl">
-              <div className="flex items-center gap-3 mb-6">
-                <Users className="text-blue-400" />
-                <h2 className="text-2xl font-bold">My Connections</h2>
-              </div>
-
-              {connections.length === 0 ? (
-                <p className="text-gray-400">No connections yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {connections.map((item) => {
-                    const sender = item.sender;
-                    const receiver = item.receiver;
-
-                    const currentUserId = user?._id || user?.id;
-                    const senderId = sender?._id || sender;
-                    const otherUser =
-                      String(senderId) === String(currentUserId)
-                        ? receiver
-                        : sender;
-
-                    if (!otherUser || typeof otherUser !== "object") {
-                      return null;
-                    }
-
-                    return (
-                      <div
-                        key={item._id}
-                        className="bg-slate-800 border border-slate-700 p-4 rounded-2xl"
-                      >
-                        <h3 className="font-semibold">
-                          {otherUser.name || "Connected member"}
-                        </h3>
-                        <p className="text-gray-400 text-sm mt-1">
-                          {otherUser.profession || otherUser.email || ""}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-6 sm:p-7 rounded-3xl">
-              <div className="flex items-center gap-3 mb-6">
-                <UserCheck className="text-blue-400" />
-                <h2 className="text-2xl font-bold">Connection Requests</h2>
-              </div>
-
-              {requests.length === 0 ? (
-                <p className="text-gray-400">No pending requests.</p>
-              ) : (
-                <div className="space-y-4">
-                  {requests.map((item) => (
-                    <div
-                      key={item._id}
-                      className="bg-slate-800 border border-slate-700 p-5 rounded-2xl"
-                    >
-                      <h3 className="font-semibold">
-                        {item.sender?.name || "Member"}
-                      </h3>
-
-                      <p className="text-gray-400 text-sm mt-1">
-                        {item.sender?.profession || ""}
-                      </p>
-
-                      <div className="flex flex-wrap gap-3 mt-4">
-                        <button
-                          type="button"
-                          onClick={() => acceptRequest(item._id)}
-                          className="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-semibold"
-                        >
-                          <UserCheck size={17} />
-                          Accept
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => rejectRequest(item._id)}
-                          className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-semibold"
-                        >
-                          <UserX size={17} />
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((open) => !open)}
+            aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+            aria-expanded={sidebarOpen}
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm"
+          >
+            {sidebarOpen ? <X size={21} /> : <Menu size={21} />}
+          </button>
         </div>
-      </main>
-    </>
+
+        <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)]">
+          <aside
+            className={`${
+              sidebarOpen ? "block" : "hidden"
+            } lg:block`}
+          >
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-24">
+              <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 text-white">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500 text-lg font-bold">
+                  {getInitials(user?.name || "U")}
+                </div>
+                <h2 className="mt-4 truncate text-lg font-bold">
+                  {user?.name || "Event Member"}
+                </h2>
+                <p className="mt-1 truncate text-sm text-slate-300">
+                  {user?.email || "Welcome to ConnectEvent"}
+                </p>
+                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Member account
+                </div>
+              </div>
+
+              <nav className="p-3" aria-label="User dashboard navigation">
+                <p className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Workspace
+                </p>
+
+                {navigation.map(({ id, label, icon: Icon }) => {
+                  const active = activeSection === id;
+
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => handleNavigation(id)}
+                      aria-current={active ? "page" : undefined}
+                      className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
+                        active
+                          ? "bg-orange-50 text-orange-700"
+                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                    >
+                      <Icon
+                        size={19}
+                        className={active ? "text-orange-600" : "text-slate-400"}
+                      />
+                      <span className="flex-1">{label}</span>
+                      {active && (
+                        <span className="h-5 w-1 rounded-full bg-orange-500" />
+                      )}
+                    </button>
+                  );
+                })}
+
+                <div className="my-4 border-t border-slate-100" />
+
+                <Link
+                  to="/events"
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-orange-700"
+                >
+                  <CalendarDays size={19} className="text-slate-400" />
+                  <span className="flex-1">Explore Events</span>
+                  <ArrowUpRight size={16} className="text-slate-400" />
+                </Link>
+              </nav>
+
+              <div className="mx-3 mb-3 rounded-xl bg-slate-50 p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <MessageCircle size={17} className="text-orange-600" />
+                  Meet your community
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Discover events, meet people, and build meaningful connections.
+                </p>
+                <Link
+                  to="/events"
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
+                >
+                  Find an event <ArrowUpRight size={14} />
+                </Link>
+              </div>
+            </div>
+          </aside>
+
+          <main className="min-w-0">
+            <div className="mb-6 hidden items-center justify-between gap-4 lg:flex">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
+                  Your workspace
+                </p>
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 xl:text-3xl">
+                  {activeSection === "overview"
+                    ? `Welcome back, ${firstName}`
+                    : pageTitle}
+                </h1>
+                <p className="mt-2 text-sm text-slate-500">
+                  {activeSection === "overview"
+                    ? "Your events, connections, and community — all in one place."
+                    : `Manage your ${pageTitle.toLowerCase()} in one place.`}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadDashboard}
+                disabled={loading}
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={16}
+                  className={loading ? "animate-spin" : ""}
+                />
+                Refresh
+              </button>
+            </div>
+
+            <div className="mb-5 flex items-center justify-between gap-3 lg:hidden">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {pageTitle}
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Manage your ConnectEvent activity
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={loadDashboard}
+                disabled={loading}
+                aria-label="Refresh dashboard"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={17}
+                  className={loading ? "animate-spin" : ""}
+                />
+              </button>
+            </div>
+
+            {sectionContent()}
+          </main>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -1,5 +1,30 @@
+
 import Event from "../models/Event.js";
 import cloudinary from "../config/cloudinary.js";
+
+// Use the event calendar date in Indian Standard Time.
+const getIndiaDateKey = (date = new Date()) => {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+};
+
+const isEventRegistrationOpen = (eventDate) => {
+  if (!eventDate) return false;
+
+  // Registration remains open until the day before the event.
+  return getIndiaDateKey(eventDate) > getIndiaDateKey();
+};
+
+// Convert today's Indian calendar date into a UTC date boundary.
+// This works with event dates saved from HTML date inputs.
+const getTodayDateBoundary = () => {
+  const todayKey = getIndiaDateKey();
+  return new Date(`${todayKey}T00:00:00.000Z`);
+};
 
 export const createEvent = async (req, res) => {
   try {
@@ -21,7 +46,7 @@ export const createEvent = async (req, res) => {
           typeof req.body.speakers === "string"
             ? JSON.parse(req.body.speakers)
             : req.body.speakers;
-      } catch (error) {
+      } catch {
         return res.status(400).json({
           message: "Invalid speakers data",
         });
@@ -44,46 +69,54 @@ export const createEvent = async (req, res) => {
       organizer: req.user._id,
     });
 
-    res.status(201).json(event);
+    return res.status(201).json(event);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
 };
 
+// Public event listing: exclude today's and past events.
 export const getEvents = async (req, res) => {
   try {
     const events = await Event.find({
       status: "approved",
+      date: { $gte: getTodayDateBoundary() },
     })
       .populate("organizer", "name email profession")
       .sort({ createdAt: -1 });
 
-    res.json(events);
+    // Additional date check protects against date-boundary differences.
+    const activeEvents = events.filter((event) =>
+      isEventRegistrationOpen(event.date)
+    );
+
+    return res.json(activeEvents);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
 };
 
+// Public event details: do not serve expired events.
 export const getEventById = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id).populate(
-      "organizer",
-      "name email profession"
-    );
+    const event = await Event.findOne({
+      _id: req.params.id,
+      status: "approved",
+    }).populate("organizer", "name email profession");
 
-    if (!event) {
+    if (!event || !isEventRegistrationOpen(event.date)) {
       return res.status(404).json({
-        message: "Event not found",
+        message: "This event is no longer available.",
       });
     }
 
-    res.json(event);
+    return res.json(event);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -116,7 +149,7 @@ export const updateEvent = async (req, res) => {
           typeof req.body.speakers === "string"
             ? JSON.parse(req.body.speakers)
             : req.body.speakers;
-      } catch (error) {
+      } catch {
         return res.status(400).json({
           message: "Invalid speakers data",
         });
@@ -149,9 +182,9 @@ export const updateEvent = async (req, res) => {
 
     const updatedEvent = await event.save();
 
-    res.json(updatedEvent);
+    return res.json(updatedEvent);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -178,25 +211,27 @@ export const deleteEvent = async (req, res) => {
 
     await event.deleteOne();
 
-    res.json({
+    return res.json({
       message: "Event deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
 };
 
+// Organizer dashboard: retain all the organizer's events,
+// including past events, for management and reporting.
 export const getMyOrganizerEvents = async (req, res) => {
   try {
     const events = await Event.find({
       organizer: req.user._id,
     }).sort({ createdAt: -1 });
 
-    res.json(events);
+    return res.json(events);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
