@@ -9,7 +9,10 @@ import SeatReservation from "../models/SeatReservation.js";
 
 // Initialize Razorpay only when needed
 const getRazorpay = () => {
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  if (
+    !process.env.RAZORPAY_KEY_ID ||
+    !process.env.RAZORPAY_KEY_SECRET
+  ) {
     throw new Error("Razorpay environment variables are missing");
   }
 
@@ -21,10 +24,13 @@ const getRazorpay = () => {
 
 // Generate a unique ticket number
 const createTicketNumber = () => {
-  return `EVT-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  return `EVT-${Date.now()}-${crypto
+    .randomBytes(3)
+    .toString("hex")
+    .toUpperCase()}`;
 };
 
-// Release expired seat reservations and restore event availability
+// Release expired reservations and restore event inventory
 const releaseExpiredReservations = async (eventId = null) => {
   const now = new Date();
 
@@ -38,15 +44,14 @@ const releaseExpiredReservations = async (eventId = null) => {
     expiredQuery.event = eventId;
   }
 
-  const expiredRegistrations = await Registration.find(expiredQuery).select(
-    "_id event selectedSeats"
-  );
+  const expiredRegistrations = await Registration.find(
+    expiredQuery
+  ).select("_id event selectedSeats");
 
-  for (const registration of expiredRegistrations) {
-    // Only one request can change this pending registration to cancelled.
+  for (const item of expiredRegistrations) {
     const expiredRegistration = await Registration.findOneAndUpdate(
       {
-        _id: registration._id,
+        _id: item._id,
         status: "pending",
         paymentStatus: "pending",
         reservationExpiresAt: { $lte: now },
@@ -57,20 +62,20 @@ const releaseExpiredReservations = async (eventId = null) => {
           paymentStatus: "failed",
         },
       },
-      { new: true }
+      {
+        returnDocument: "after",
+      }
     );
 
     if (!expiredRegistration) {
       continue;
     }
 
-    // Delete only this registration's held seats.
     const deletedSeats = await SeatReservation.deleteMany({
       registration: expiredRegistration._id,
       status: "held",
     });
 
-    // Restore inventory only for the seats that were actually held.
     if (deletedSeats.deletedCount > 0) {
       await Event.findByIdAndUpdate(expiredRegistration.event, {
         $inc: {
@@ -81,29 +86,38 @@ const releaseExpiredReservations = async (eventId = null) => {
   }
 };
 
-// Create a notification if your existing notification schema supports these fields.
-const createRegistrationNotification = async (userId, eventId, message) => {
+// Create notification using the actual Notification schema
+const createRegistrationNotification = async (
+  userId,
+  title,
+  message
+) => {
   try {
     await Notification.create({
       user: userId,
-      event: eventId,
+      title,
       message,
-      read: false,
+      isRead: false,
     });
   } catch (error) {
-    // A notification failure should not undo a completed registration.
-    console.error("Registration notification error:", error.message);
+    // Notification failure must not undo a successful payment.
+    console.error(
+      "Registration notification error:",
+      error.message
+    );
   }
 };
 
 // GET /api/registrations/event/:eventId/seats
-// Return seats that are currently held or booked.
+// Return occupied seats for an event
 export const getEventSeats = async (req, res) => {
   try {
     const { eventId } = req.params;
 
     if (!mongoose.isValidObjectId(eventId)) {
-      return res.status(400).json({ message: "Invalid event ID" });
+      return res.status(400).json({
+        message: "Invalid event ID",
+      });
     }
 
     await releaseExpiredReservations(eventId);
@@ -112,24 +126,33 @@ export const getEventSeats = async (req, res) => {
       event: eventId,
       $or: [
         { status: "booked" },
-        { status: "held", expiresAt: { $gt: new Date() } },
+        {
+          status: "held",
+          expiresAt: { $gt: new Date() },
+        },
       ],
-    }).select("seatNumber status");
+    }).select("seatNumber");
 
     return res.status(200).json({
-      occupiedSeats: reservations.map((reservation) => reservation.seatNumber),
+      occupiedSeats: reservations.map(
+        (reservation) => reservation.seatNumber
+      ),
     });
   } catch (error) {
     console.error("Get event seats error:", error);
-    return res.status(500).json({ message: "Failed to load event seats" });
+
+    return res.status(500).json({
+      message: "Failed to load event seats",
+    });
   }
 };
 
 // POST /api/registrations/:eventId
-// Create a registration and, for paid events, a Razorpay order.
+// Create seat reservation and Razorpay order
 export const registerForEvent = async (req, res) => {
   let registration = null;
   let seatHoldCreated = false;
+  let inventoryReserved = false;
 
   try {
     const { eventId } = req.params;
@@ -137,7 +160,9 @@ export const registerForEvent = async (req, res) => {
     const { selectedSeats } = req.body;
 
     if (!mongoose.isValidObjectId(eventId)) {
-      return res.status(400).json({ message: "Invalid event ID" });
+      return res.status(400).json({
+        message: "Invalid event ID",
+      });
     }
 
     if (
@@ -196,7 +221,7 @@ export const registerForEvent = async (req, res) => {
       });
     }
 
-    // Enforce a maximum of five active seats per user for this event.
+    // Maximum five active seats per user per event
     const existingRegistrations = await Registration.find({
       user: userId,
       event: eventId,
@@ -205,11 +230,13 @@ export const registerForEvent = async (req, res) => {
 
     const existingSeatCount = existingRegistrations.reduce(
       (total, item) => {
-        const stillPending =
+        const expired =
           item.reservationExpiresAt &&
           new Date(item.reservationExpiresAt) <= new Date();
 
-        if (stillPending) return total;
+        if (expired) {
+          return total;
+        }
 
         return total + (item.selectedSeats || []).length;
       },
@@ -222,13 +249,16 @@ export const registerForEvent = async (req, res) => {
       });
     }
 
-    // Check for already-held or booked seats.
+    // Reject seats that are already held or booked
     const existingSeatReservations = await SeatReservation.find({
       event: eventId,
       seatNumber: { $in: seats },
       $or: [
         { status: "booked" },
-        { status: "held", expiresAt: { $gt: new Date() } },
+        {
+          status: "held",
+          expiresAt: { $gt: new Date() },
+        },
       ],
     }).select("seatNumber");
 
@@ -251,7 +281,6 @@ export const registerForEvent = async (req, res) => {
     const isFree = amount === 0;
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Create a registration first so each reservation can reference it.
     registration = await Registration.create({
       user: userId,
       event: eventId,
@@ -263,8 +292,6 @@ export const registerForEvent = async (req, res) => {
       reservationExpiresAt: isFree ? undefined : expiresAt,
     });
 
-    // The database's unique event/seat index prevents two registrations
-    // from holding the same seat at the same time.
     await SeatReservation.insertMany(
       seats.map((seatNumber) => ({
         event: eventId,
@@ -277,7 +304,7 @@ export const registerForEvent = async (req, res) => {
 
     seatHoldCreated = true;
 
-    // Update event inventory only if enough seats remain.
+    // Reserve inventory atomically
     const updatedEvent = await Event.findOneAndUpdate(
       {
         _id: eventId,
@@ -285,19 +312,25 @@ export const registerForEvent = async (req, res) => {
         availableSeats: { $gte: seats.length },
       },
       {
-        $inc: { availableSeats: -seats.length },
+        $inc: {
+          availableSeats: -seats.length,
+        },
       },
-      { new: true }
+      {
+        returnDocument: "after",
+      }
     );
 
     if (!updatedEvent) {
       throw new Error("SEATS_NO_LONGER_AVAILABLE");
     }
 
+    inventoryReserved = true;
+
     if (isFree) {
       await createRegistrationNotification(
         userId,
-        eventId,
+        "Registration Successful",
         `Your registration for ${event.title} is confirmed.`
       );
 
@@ -308,7 +341,6 @@ export const registerForEvent = async (req, res) => {
       });
     }
 
-    // Create the Razorpay order for paid events.
     const razorpay = getRazorpay();
 
     const order = await razorpay.orders.create({
@@ -326,7 +358,8 @@ export const registerForEvent = async (req, res) => {
     await registration.save();
 
     return res.status(201).json({
-      message: "Seat reservation created. Complete payment within 10 minutes.",
+      message:
+        "Seat reservation created. Complete payment within 10 minutes.",
       registration,
       isFree: false,
       order: {
@@ -339,36 +372,39 @@ export const registerForEvent = async (req, res) => {
   } catch (error) {
     console.error("Register for event error:", error);
 
-    // Clean up reservations if creating the booking/order fails.
-    if (registration && !seatHoldCreated) {
-      await Registration.findByIdAndDelete(registration._id).catch(() => {});
-      await SeatReservation.deleteMany({
-        registration: registration._id,
-      }).catch(() => {});
-    } else if (registration && seatHoldCreated) {
-      // Do not leave a broken pending booking behind.
-      const current = await Registration.findById(registration._id).catch(
-        () => null
-      );
+    if (registration) {
+      const current = await Registration.findById(
+        registration._id
+      ).catch(() => null);
 
+      // Don't undo an already-confirmed registration.
       if (current && current.status !== "registered") {
-        await Registration.findByIdAndUpdate(registration._id, {
-          $set: {
-            status: "cancelled",
-            paymentStatus: "failed",
-          },
-        }).catch(() => {});
+        await Registration.findByIdAndUpdate(
+          registration._id,
+          {
+            $set: {
+              status: "cancelled",
+              paymentStatus: "failed",
+            },
+          }
+        ).catch(() => {});
 
         const deleted = await SeatReservation.deleteMany({
           registration: registration._id,
           status: { $in: ["held", "booked"] },
         }).catch(() => ({ deletedCount: 0 }));
 
-        if (deleted.deletedCount > 0) {
+        if (inventoryReserved && deleted.deletedCount > 0) {
           await Event.findByIdAndUpdate(registration.event, {
-            $inc: { availableSeats: deleted.deletedCount },
+            $inc: {
+              availableSeats: deleted.deletedCount,
+            },
           }).catch(() => {});
         }
+      } else if (!current && seatHoldCreated) {
+        await SeatReservation.deleteMany({
+          registration: registration._id,
+        }).catch(() => {});
       }
     }
 
@@ -380,7 +416,8 @@ export const registerForEvent = async (req, res) => {
 
     if (error.code === 11000) {
       return res.status(409).json({
-        message: "One or more seats have just been reserved. Please select again.",
+        message:
+          "One or more seats have just been reserved. Please select again.",
       });
     }
 
@@ -391,7 +428,7 @@ export const registerForEvent = async (req, res) => {
 };
 
 // POST /api/registrations/verify-payment
-// Verify Razorpay's signature and confirm the registration.
+// Verify payment and confirm registration
 export const verifyRegistrationPayment = async (req, res) => {
   try {
     const {
@@ -418,10 +455,12 @@ export const verifyRegistrationPayment = async (req, res) => {
     });
 
     if (!registration) {
-      return res.status(404).json({ message: "Registration not found" });
+      return res.status(404).json({
+        message: "Registration not found",
+      });
     }
 
-    // Idempotent response for a registration already marked paid.
+    // Allow safe retries if this payment is already confirmed.
     if (
       registration.status === "registered" &&
       registration.paymentStatus === "paid"
@@ -442,7 +481,9 @@ export const verifyRegistrationPayment = async (req, res) => {
     }
 
     if (registration.razorpayOrderId !== razorpay_order_id) {
-      return res.status(400).json({ message: "Payment order does not match" });
+      return res.status(400).json({
+        message: "Payment order does not match",
+      });
     }
 
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -458,35 +499,48 @@ export const verifyRegistrationPayment = async (req, res) => {
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    const signatureBuffer = Buffer.from(razorpay_signature, "hex");
-    const expectedBuffer = Buffer.from(expectedSignature, "hex");
+    const signatureBuffer = Buffer.from(
+      razorpay_signature,
+      "hex"
+    );
+
+    const expectedBuffer = Buffer.from(
+      expectedSignature,
+      "hex"
+    );
 
     if (
       signatureBuffer.length !== expectedBuffer.length ||
-      !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+      !crypto.timingSafeEqual(
+        signatureBuffer,
+        expectedBuffer
+      )
     ) {
       return res.status(400).json({
         message: "Payment signature verification failed",
       });
     }
 
-    // Confirm the payment details directly with Razorpay as well.
+    // Confirm payment directly with Razorpay
     const razorpay = getRazorpay();
-    const payment = await razorpay.payments.fetch(razorpay_payment_id);
+
+    const payment = await razorpay.payments.fetch(
+      razorpay_payment_id
+    );
 
     if (
       payment.order_id !== razorpay_order_id ||
       payment.status !== "captured" ||
-      payment.amount !== Math.round(Number(registration.amount) * 100) ||
+      payment.amount !==
+        Math.round(Number(registration.amount) * 100) ||
       payment.currency !== "INR"
     ) {
       return res.status(400).json({
         message:
-          "Payment is not confirmed as captured. Please check your payment status.",
+          "Payment is not confirmed as captured. Check payment status before retrying.",
       });
     }
 
-    // Do not confirm a registration whose seat hold has expired.
     if (
       !registration.reservationExpiresAt ||
       new Date(registration.reservationExpiresAt) <= new Date()
@@ -495,7 +549,7 @@ export const verifyRegistrationPayment = async (req, res) => {
 
       return res.status(410).json({
         message:
-          "Your seat reservation expired. If your payment was charged, contact support for payment reconciliation.",
+          "Your seat reservation expired. If payment was charged, contact support for reconciliation.",
       });
     }
 
@@ -505,14 +559,16 @@ export const verifyRegistrationPayment = async (req, res) => {
       expiresAt: { $gt: new Date() },
     });
 
-    if (heldSeats.length !== registration.selectedSeats.length) {
+    if (
+      heldSeats.length !==
+      (registration.selectedSeats || []).length
+    ) {
       return res.status(409).json({
         message:
-          "The reserved seats could not be confirmed. Contact support if your payment was charged.",
+          "Reserved seats could not be confirmed. Contact support if payment was charged.",
       });
     }
 
-    // Change the registration only while it is still pending and unexpired.
     const confirmedRegistration = await Registration.findOneAndUpdate(
       {
         _id: registration._id,
@@ -530,12 +586,28 @@ export const verifyRegistrationPayment = async (req, res) => {
           reservationExpiresAt: null,
         },
       },
-      { new: true }
+      {
+        returnDocument: "after",
+      }
     );
 
     if (!confirmedRegistration) {
+      // Another request may have confirmed it while this request ran.
+      const latest = await Registration.findById(registration._id);
+
+      if (
+        latest?.status === "registered" &&
+        latest?.paymentStatus === "paid"
+      ) {
+        return res.status(200).json({
+          message: "Payment has already been verified",
+          registration: latest,
+        });
+      }
+
       return res.status(409).json({
-        message: "Registration could not be confirmed. Please check its status.",
+        message:
+          "Registration could not be confirmed. Check its status before retrying.",
       });
     }
 
@@ -552,11 +624,13 @@ export const verifyRegistrationPayment = async (req, res) => {
       }
     );
 
-    const event = await Event.findById(confirmedRegistration.event);
+    const event = await Event.findById(
+      confirmedRegistration.event
+    ).select("title");
 
     await createRegistrationNotification(
       req.user._id,
-      confirmedRegistration.event,
+      "Registration Successful",
       `Your payment was successful and your registration for ${
         event?.title || "the event"
       } is confirmed.`
@@ -577,13 +651,15 @@ export const verifyRegistrationPayment = async (req, res) => {
 };
 
 // GET /api/registrations/ticket/:registrationId
-// Return the current user's confirmed ticket.
+// Return the current user's confirmed ticket
 export const getTicket = async (req, res) => {
   try {
     const { registrationId } = req.params;
 
     if (!mongoose.isValidObjectId(registrationId)) {
-      return res.status(400).json({ message: "Invalid registration ID" });
+      return res.status(400).json({
+        message: "Invalid registration ID",
+      });
     }
 
     const registration = await Registration.findOne({
@@ -599,19 +675,30 @@ export const getTicket = async (req, res) => {
       });
     }
 
-    return res.status(200).json({ registration });
+    return res.status(200).json({
+      registration,
+    });
   } catch (error) {
     console.error("Get ticket error:", error);
-    return res.status(500).json({ message: "Failed to load ticket" });
+
+    return res.status(500).json({
+      message: "Failed to load ticket",
+    });
   }
 };
 
 // DELETE /api/registrations/:eventId
-// Cancel the current user's confirmed registration.
+// Cancel current user's confirmed registration
 export const cancelRegistration = async (req, res) => {
   try {
     const { eventId } = req.params;
     const userId = req.user._id;
+
+    if (!mongoose.isValidObjectId(eventId)) {
+      return res.status(400).json({
+        message: "Invalid event ID",
+      });
+    }
 
     const registration = await Registration.findOne({
       user: userId,
@@ -632,9 +719,13 @@ export const cancelRegistration = async (req, res) => {
         status: "registered",
       },
       {
-        $set: { status: "cancelled" },
+        $set: {
+          status: "cancelled",
+        },
       },
-      { new: true }
+      {
+        returnDocument: "after",
+      }
     );
 
     if (!cancelledRegistration) {
@@ -650,7 +741,9 @@ export const cancelRegistration = async (req, res) => {
 
     if (deleted.deletedCount > 0) {
       await Event.findByIdAndUpdate(eventId, {
-        $inc: { availableSeats: deleted.deletedCount },
+        $inc: {
+          availableSeats: deleted.deletedCount,
+        },
       });
     }
 
@@ -660,6 +753,7 @@ export const cancelRegistration = async (req, res) => {
     });
   } catch (error) {
     console.error("Cancel registration error:", error);
+
     return res.status(500).json({
       message: "Unable to cancel registration",
     });
@@ -667,7 +761,7 @@ export const cancelRegistration = async (req, res) => {
 };
 
 // GET /api/registrations/my-events
-// Get the current user's registrations.
+// Get current user's registrations
 export const getMyRegistrations = async (req, res) => {
   try {
     const registrations = await Registration.find({
@@ -676,9 +770,12 @@ export const getMyRegistrations = async (req, res) => {
       .populate("event")
       .sort({ createdAt: -1 });
 
-    return res.status(200).json({ registrations });
+    return res.status(200).json({
+      registrations,
+    });
   } catch (error) {
     console.error("Get my registrations error:", error);
+
     return res.status(500).json({
       message: "Failed to load registrations",
     });
@@ -686,10 +783,16 @@ export const getMyRegistrations = async (req, res) => {
 };
 
 // GET /api/registrations/event/:eventId/attendees
-// Get attendees for an event.
+// Get attendees for an event
 export const getEventAttendees = async (req, res) => {
   try {
     const { eventId } = req.params;
+
+    if (!mongoose.isValidObjectId(eventId)) {
+      return res.status(400).json({
+        message: "Invalid event ID",
+      });
+    }
 
     const registrations = await Registration.find({
       event: eventId,
@@ -697,11 +800,16 @@ export const getEventAttendees = async (req, res) => {
       paymentStatus: { $in: ["paid", "free"] },
     })
       .populate("user", "name email")
-      .select("user selectedSeats ticketNumber amount paymentStatus createdAt");
+      .select(
+        "user selectedSeats ticketNumber amount paymentStatus createdAt"
+      );
 
-    return res.status(200).json({ registrations });
+    return res.status(200).json({
+      registrations,
+    });
   } catch (error) {
     console.error("Get event attendees error:", error);
+
     return res.status(500).json({
       message: "Failed to load event attendees",
     });

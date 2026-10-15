@@ -4,7 +4,7 @@ import EmailOTP from "../models/EmailOTP.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomInt } from "node:crypto";
-import { sendOTPEmail } from "../utils/sendOTPEmail.js";
+import sendOTPEmail from "../utils/sendOTPEmail.js";
 
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const RESEND_WAIT_MS = 60 * 1000;
