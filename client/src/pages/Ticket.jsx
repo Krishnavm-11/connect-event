@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -22,31 +23,68 @@ function Ticket() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadTicket = async () => {
+      setLoading(true);
+      setErrorMessage("");
+
       try {
         const response = await API.get(
           `/registrations/ticket/${registrationId}`
         );
 
-        setRegistration(response.data);
+        // IMPORTANT: The backend returns { registration: {...} }
+        const ticketData = response.data?.registration;
+
+        if (!ticketData || !ticketData.event) {
+          throw new Error("The confirmed ticket data is incomplete.");
+        }
+
+        if (!cancelled) {
+          setRegistration(ticketData);
+        }
       } catch (error) {
-        setErrorMessage(
-          error.response?.data?.message ||
-            "Unable to load the ticket."
+        console.error(
+          "Load ticket error:",
+          error.response?.data || error.message
         );
+
+        if (!cancelled) {
+          setRegistration(null);
+          setErrorMessage(
+            error.response?.data?.message ||
+              error.message ||
+              "Unable to load your ticket."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    loadTicket();
+    if (registrationId) {
+      loadTicket();
+    } else {
+      setErrorMessage("Registration ID is missing.");
+      setLoading(false);
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [registrationId]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-        Loading your ticket...
-      </div>
+      <>
+        <Navbar />
+        <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+          Loading your ticket...
+        </main>
+      </>
     );
   }
 
@@ -55,9 +93,15 @@ function Ticket() {
       <>
         <Navbar />
         <main className="min-h-screen bg-slate-950 text-white px-6 py-20 text-center">
+          <TicketIcon
+            size={48}
+            className="mx-auto text-blue-400 mb-5"
+          />
+
           <h1 className="text-3xl font-bold">
             Ticket unavailable
           </h1>
+
           <p className="text-gray-400 mt-4">
             {errorMessage || "A confirmed ticket could not be found."}
           </p>
@@ -109,8 +153,12 @@ function Ticket() {
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <TicketIcon size={30} className="text-blue-400" />
+
                   <div>
-                    <p className="font-bold text-xl">CONNECT EVENT</p>
+                    <p className="font-bold text-xl">
+                      CONNECT EVENT
+                    </p>
+
                     <p className="text-xs tracking-[0.2em] text-gray-400">
                       ADMISSION TICKET
                     </p>
@@ -135,7 +183,8 @@ function Ticket() {
               </h2>
 
               <p className="text-gray-400 mt-2">
-                Organized by {event.organizer?.name || "Event Organizer"}
+                Organized by{" "}
+                {event.organizer?.name || "Event Organizer"}
               </p>
             </div>
 
@@ -146,10 +195,12 @@ function Ticket() {
                     className="text-blue-500 shrink-0"
                     size={22}
                   />
+
                   <div>
                     <p className="text-xs uppercase tracking-wider text-gray-500">
                       Event date
                     </p>
+
                     <p className="font-semibold mt-1">
                       {new Date(event.date).toLocaleDateString("en-IN", {
                         day: "numeric",
@@ -165,10 +216,12 @@ function Ticket() {
                     className="text-blue-500 shrink-0"
                     size={22}
                   />
+
                   <div>
                     <p className="text-xs uppercase tracking-wider text-gray-500">
                       Event time
                     </p>
+
                     <p className="font-semibold mt-1">
                       {event.time}
                     </p>
@@ -180,13 +233,16 @@ function Ticket() {
                     className="text-blue-500 shrink-0"
                     size={22}
                   />
+
                   <div>
                     <p className="text-xs uppercase tracking-wider text-gray-500">
                       Venue
                     </p>
+
                     <p className="font-semibold mt-1">
                       {event.venue}
                     </p>
+
                     <p className="text-sm text-gray-500 mt-1">
                       {event.location}
                     </p>
@@ -201,8 +257,9 @@ function Ticket() {
                   <p className="text-xs uppercase tracking-wider text-gray-500">
                     Ticket number
                   </p>
+
                   <p className="font-bold mt-2 break-all">
-                    {registration.ticketNumber}
+                    {registration.ticketNumber || "Not assigned"}
                   </p>
                 </div>
 
@@ -210,6 +267,7 @@ function Ticket() {
                   <p className="text-xs uppercase tracking-wider text-gray-500">
                     Payment status
                   </p>
+
                   <p className="font-bold text-emerald-600 mt-2">
                     {isPaid ? "Paid successfully" : "Free registration"}
                   </p>
@@ -221,14 +279,20 @@ function Ticket() {
                   </p>
 
                   <div className="flex flex-wrap gap-2 mt-3">
-                    {registration.selectedSeats?.map((seat) => (
-                      <span
-                        key={seat}
-                        className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 font-semibold"
-                      >
-                        Seat {seat}
+                    {registration.selectedSeats?.length > 0 ? (
+                      registration.selectedSeats.map((seat) => (
+                        <span
+                          key={seat}
+                          className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 font-semibold"
+                        >
+                          Seat {seat}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-gray-500">
+                        No seat numbers available
                       </span>
-                    ))}
+                    )}
                   </div>
                 </div>
               </div>
@@ -238,8 +302,10 @@ function Ticket() {
                   <p className="text-sm text-gray-500">
                     Total amount
                   </p>
+
                   <p className="text-2xl font-bold mt-1">
-                    ₹{Number(registration.amount || 0).toLocaleString("en-IN")}
+                    ₹
+                    {Number(registration.amount || 0).toLocaleString("en-IN")}
                   </p>
                 </div>
 
@@ -247,6 +313,7 @@ function Ticket() {
                   <p className="text-sm text-gray-500">
                     Number of seats
                   </p>
+
                   <p className="text-xl font-bold mt-1">
                     {registration.selectedSeats?.length || 0}
                   </p>
@@ -287,7 +354,8 @@ function Ticket() {
 
           nav,
           header,
-          footer {
+          footer,
+          .print\\\\:hidden {
             display: none !important;
           }
 
