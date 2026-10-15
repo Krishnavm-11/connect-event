@@ -1,9 +1,13 @@
 import { Routes, Route } from "react-router-dom";
+
 import Home from "./pages/Home";
 import Events from "./pages/Events";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import EventDetails from "./pages/EventDetails";
+import SeatSelection from "./pages/SeatSelection";
+import Ticket from "./pages/Ticket";
+
 import CreateEvent from "./pages/CreateEvent";
 import EditEvent from "./pages/EditEvent";
 import EventAttendees from "./pages/EventAttendees";
@@ -28,24 +32,47 @@ function App() {
       <Route path="/events" element={<Events />} />
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />
+
       <Route path="/events/:id" element={<EventDetails />} />
+      <Route path="/events/:id/seats" element={<SeatSelection />} />
+      <Route path="/ticket/:registrationId" element={<Ticket />} />
+
       <Route path="/create-event" element={<CreateEvent />} />
       <Route path="/edit-event/:id" element={<EditEvent />} />
-      <Route path="/organizer/events/:id/attendees" element={<EventAttendees />} />
+
+      <Route
+        path="/organizer/events/:id/attendees"
+        element={<EventAttendees />}
+      />
+
       <Route path="/events/:id/chat" element={<EventChat />} />
-      <Route path="/events/:id/networking" element={<NetworkingSuggestions />} />
+      <Route
+        path="/events/:id/networking"
+        element={<NetworkingSuggestions />}
+      />
+
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/dashboard" element={<UserDashboard />} />
+
       <Route path="/organizer" element={<OrganizerDashboard />} />
+
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin/events" element={<AdminEvents />} />
       <Route path="/admin/users" element={<AdminUsers />} />
-      <Route path="/admin/organizers" element={<AdminOrganizers />} />
-      <Route path="/admin/registrations" element={<AdminRegistrations />} />
-      <Route path="/admin/analytics" element={<AdminAnalytics />} />
+      <Route
+        path="/admin/organizers"
+        element={<AdminOrganizers />}
+      />
+      <Route
+        path="/admin/registrations"
+        element={<AdminRegistrations />}
+      />
+      <Route
+        path="/admin/analytics"
+        element={<AdminAnalytics />}
+      />
       <Route path="/admin/contacts" element={<AdminContacts />} />
-
     </Routes>
   );
 }

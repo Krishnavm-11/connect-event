@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Calendar, Clock, MapPin, Users, Heart, Share2, UserCircle } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  Heart,
+  Share2,
+  UserCircle,
+} from "lucide-react";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -11,40 +19,30 @@ function EventDetails() {
   const { user } = useAuth();
 
   const [event, setEvent] = useState(null);
-  const [isRegistering, setIsRegistering] = useState(false);
 
-  const getEventDetails = async () => {
-    try {
-      const res = await API.get(`/events/${id}`);
-      setEvent(res.data);
-    } catch (error) {
-      console.log(error.response?.data?.message || error.message);
-    }
-  };
+  useEffect(() => {
+    const getEventDetails = async () => {
+      try {
+        const res = await API.get(`/events/${id}`);
+        setEvent(res.data);
+      } catch (error) {
+        console.error(
+          error.response?.data?.message || error.message
+        );
+      }
+    };
 
-  const handleRegister = async () => {
+    getEventDetails();
+  }, [id]);
+
+  const handleRegister = () => {
     if (!user) {
       navigate("/login");
       return;
     }
 
-    try {
-      setIsRegistering(true);
-
-      const res = await API.post(`/registrations/${id}`);
-
-      alert(res.data.message);
-      navigate("/dashboard");
-    } catch (error) {
-      alert(error.response?.data?.message || "Registration failed");
-    } finally {
-      setIsRegistering(false);
-    }
+    navigate(`/events/${id}/seats`);
   };
-
-  useEffect(() => {
-    getEventDetails();
-  }, [id]);
 
   if (!event) {
     return (
@@ -69,7 +67,7 @@ function EventDetails() {
             className="w-full h-full object-cover"
           />
 
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
 
           <div className="absolute bottom-10 left-0 right-0">
             <div className="max-w-7xl mx-auto px-6">
@@ -111,7 +109,10 @@ function EventDetails() {
                       key={index}
                       className="bg-slate-800 border border-slate-700 p-5 rounded-2xl flex items-center gap-4"
                     >
-                      <UserCircle className="text-blue-400" size={42} />
+                      <UserCircle
+                        className="text-blue-400"
+                        size={42}
+                      />
 
                       <div>
                         <h3 className="text-xl font-semibold">
@@ -124,7 +125,9 @@ function EventDetails() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-400">No speakers added.</p>
+                  <p className="text-gray-400">
+                    No speakers added.
+                  </p>
                 )}
               </div>
             </div>
@@ -134,15 +137,35 @@ function EventDetails() {
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-7 sticky top-24">
               <div className="flex justify-between items-center">
                 <h2 className="text-4xl font-bold text-blue-400">
-                  ₹{event.price}
+                  ₹{Number(event.price || 0).toLocaleString("en-IN")}
+                  <span className="text-sm text-gray-400 font-normal">
+                    {" "} / person
+                  </span>
                 </h2>
 
                 <div className="flex gap-3">
-                  <button className="bg-slate-800 hover:bg-slate-700 p-3 rounded-full">
+                  <button
+                    type="button"
+                    aria-label="Add to favorites"
+                    className="bg-slate-800 hover:bg-slate-700 p-3 rounded-full"
+                  >
                     <Heart size={20} />
                   </button>
 
-                  <button className="bg-slate-800 hover:bg-slate-700 p-3 rounded-full">
+                  <button
+                    type="button"
+                    aria-label="Share event"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(
+                          window.location.href
+                        );
+                      } catch (error) {
+                        console.error("Unable to copy event link");
+                      }
+                    }}
+                    className="bg-slate-800 hover:bg-slate-700 p-3 rounded-full"
+                  >
                     <Share2 size={20} />
                   </button>
                 </div>
@@ -172,10 +195,9 @@ function EventDetails() {
 
               <button
                 onClick={handleRegister}
-                disabled={isRegistering}
-                className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-60 py-4 rounded-2xl mt-8 font-semibold transition"
+                className="w-full bg-blue-500 hover:bg-blue-600 py-4 rounded-2xl mt-8 font-semibold transition"
               >
-                {isRegistering ? "Registering..." : "Register Now"}
+                Choose Seats
               </button>
 
               <button
@@ -186,14 +208,16 @@ function EventDetails() {
               </button>
 
               <button
-                onClick={() => navigate(`/events/${id}/networking`)}
+                onClick={() =>
+                  navigate(`/events/${id}/networking`)
+                }
                 className="w-full bg-slate-800 hover:bg-slate-700 py-4 rounded-2xl mt-4 font-semibold transition"
               >
                 View Networking Suggestions
               </button>
 
               <p className="text-gray-500 text-sm text-center mt-4">
-                Secure your seat and start networking with attendees.
+                Select your seats before confirming registration.
               </p>
             </div>
           </div>
