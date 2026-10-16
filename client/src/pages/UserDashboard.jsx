@@ -10,7 +10,6 @@ import {
   CalendarDays,
   MessageCircle,
   MapPin,
-  Clock,
   ArrowUpRight,
   Menu,
   X,
@@ -19,6 +18,7 @@ import {
   XCircle,
   Inbox,
   ChevronRight,
+  Clock,
 } from "lucide-react";
 
 import Navbar from "../components/Navbar";
@@ -160,12 +160,6 @@ function UserDashboard() {
     loadDashboard();
   }, [loadDashboard]);
 
-  useEffect(() => {
-    return () => {
-      // Prevent pending toast timers from updating an unmounted dashboard.
-    };
-  }, []);
-
   const confirmedTickets = registrations.filter(
     (item) =>
       item.status === "registered" &&
@@ -173,9 +167,49 @@ function UserDashboard() {
       item.event
   );
 
-  const pendingBookings = registrations.filter(
-    (item) => item.status === "pending"
-  );
+  // Create reminders for confirmed events happening today or tomorrow.
+  const eventReminders = confirmedTickets
+    .map((item) => {
+      const event = item.event;
+      const rawDate = event?.date || event?.startDate;
+
+      if (!rawDate) return null;
+
+      const eventDate = new Date(rawDate);
+
+      if (Number.isNaN(eventDate.getTime())) return null;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      eventDate.setHours(0, 0, 0, 0);
+
+      if (eventDate.getTime() === today.getTime()) {
+        return {
+          id: item._id,
+          title: event.title || "Your event",
+          date: rawDate,
+          type: "today",
+          message: `${event.title || "Your event"} is happening today!`,
+        };
+      }
+
+      if (eventDate.getTime() === tomorrow.getTime()) {
+        return {
+          id: item._id,
+          title: event.title || "Your event",
+          date: rawDate,
+          type: "tomorrow",
+          message: `Reminder: ${event.title || "Your event"} is tomorrow!`,
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
 
   const handleNavigation = (section) => {
     setSidebarOpen(false);
@@ -475,6 +509,81 @@ function UserDashboard() {
     );
   };
 
+  const renderNotifications = () => {
+    if (eventReminders.length === 0) {
+      return (
+        <EmptyState
+          icon={Bell}
+          title="You're all caught up"
+          description="Event reminders will appear here one day before your event and on the event day."
+          action={
+            <Link
+              to="/events"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
+            >
+              Explore Events <ArrowUpRight size={16} />
+            </Link>
+          }
+        />
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {eventReminders.map((reminder) => (
+          <div
+            key={reminder.id}
+            className={`flex items-start gap-4 rounded-2xl border p-5 ${
+              reminder.type === "today"
+                ? "border-blue-500/40 bg-blue-500/10"
+                : "border-amber-500/30 bg-amber-500/5"
+            }`}
+          >
+            <div
+              className={`rounded-xl p-3 ${
+                reminder.type === "today"
+                  ? "bg-blue-500/15 text-blue-400"
+                  : "bg-amber-500/10 text-amber-400"
+              }`}
+            >
+              {reminder.type === "today" ? (
+                <Bell size={22} />
+              ) : (
+                <Clock size={22} />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-white">
+                {reminder.type === "today"
+                  ? "Event Today"
+                  : "Event Tomorrow"}
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-slate-300">
+                {reminder.message}
+              </p>
+
+              <p className="mt-2 text-xs text-slate-400">
+                {formatDate(reminder.date)}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(`/events/${reminder.id}`)
+                }
+                className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-blue-400 hover:text-blue-300"
+              >
+                View event <ArrowUpRight size={15} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const sectionContent = () => {
     if (loading) {
       return (
@@ -513,23 +622,19 @@ function UserDashboard() {
       case "requests":
         return renderRequests();
 
+      case "notifications":
+        return renderNotifications();
+
       case "overview":
       default:
         return (
           <div className="space-y-8">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <StatCard
                 icon={Ticket}
                 label="Confirmed Tickets"
                 value={confirmedTickets.length}
                 description="Your confirmed event bookings"
-              />
-
-              <StatCard
-                icon={Clock}
-                label="Pending Bookings"
-                value={pendingBookings.length}
-                description="Bookings awaiting confirmation"
               />
 
               <StatCard
@@ -547,21 +652,58 @@ function UserDashboard() {
               />
             </div>
 
-            {pendingBookings.length > 0 && (
-              <div className="flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
-                <Clock size={20} className="mt-0.5 shrink-0 text-amber-400" />
+            {eventReminders.length > 0 && (
+              <section>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-white">
+                      Event Reminders
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Events happening today or tomorrow
+                    </p>
+                  </div>
 
-                <div>
-                  <h3 className="font-semibold text-amber-200">
-                    You have pending bookings
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-amber-100/70">
-                    {pendingBookings.length} booking
-                    {pendingBookings.length === 1 ? " is" : "s are"} still pending.
-                    Check the event details and booking status before relying on a ticket.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleNavigation("notifications")}
+                    className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-400 transition hover:text-blue-300"
+                  >
+                    View all <ChevronRight size={17} />
+                  </button>
                 </div>
-              </div>
+
+                <div className="space-y-3">
+                  {eventReminders.slice(0, 2).map((reminder) => (
+                    <div
+                      key={reminder.id}
+                      className={`flex items-start gap-3 rounded-2xl border p-4 ${
+                        reminder.type === "today"
+                          ? "border-blue-500/40 bg-blue-500/10"
+                          : "border-amber-500/30 bg-amber-500/5"
+                      }`}
+                    >
+                      <Bell
+                        size={20}
+                        className={
+                          reminder.type === "today"
+                            ? "mt-0.5 text-blue-400"
+                            : "mt-0.5 text-amber-400"
+                        }
+                      />
+
+                      <div>
+                        <p className="font-semibold text-white">
+                          {reminder.message}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {formatDate(reminder.date)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
 
             <section>
