@@ -1,18 +1,27 @@
 import { useEffect, useState } from "react";
-import { Search, UserCircle, Mail, Briefcase } from "lucide-react";
+import { Trash2, Users, RefreshCw } from "lucide-react";
 import AdminLayout from "../components/AdminLayout";
 import API from "../services/api";
 
 function AdminUsers() {
   const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState("");
 
   const getUsers = async () => {
     try {
+      setLoading(true);
+      setError("");
+
       const res = await API.get("/admin/users");
       setUsers(res.data);
     } catch (error) {
-      console.log(error.response?.data?.message || error.message);
+      setError(
+        error.response?.data?.message || "Failed to load users."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -20,72 +29,164 @@ function AdminUsers() {
     getUsers();
   }, []);
 
-  const filteredUsers = users.filter((user) =>
-    user.name.toLowerCase().includes(search.toLowerCase()) ||
-    user.email.toLowerCase().includes(search.toLowerCase()) ||
-    user.profession?.toLowerCase().includes(search.toLowerCase())
-  );
+  const deleteUser = async (id, name) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${name}? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(id);
+      setError("");
+
+      await API.delete(`/admin/users/${id}`);
+
+      setUsers((previousUsers) =>
+        previousUsers.filter((user) => user._id !== id)
+      );
+    } catch (error) {
+      setError(
+        error.response?.data?.message || "Failed to delete user."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <AdminLayout>
-      <div>
-        <h1 className="text-4xl font-bold text-white">User Management</h1>
+      <div className="space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-white">
+              User Management
+            </h1>
 
-        <p className="text-gray-400 mt-2">
-          View and manage all registered users.
-        </p>
+            <p className="text-gray-400 mt-2">
+              View and manage registered users.
+            </p>
+          </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl flex items-center max-w-md mt-8">
-          <Search className="text-gray-400 ml-4" size={20} />
-
-          <input
-            type="text"
-            placeholder="Search users..."
-            className="bg-transparent outline-none text-white px-4 py-3 w-full"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <button
+            onClick={getUsers}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-gray-200 hover:bg-slate-800 disabled:opacity-50"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
         </div>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6 mt-10">
-          {filteredUsers.map((user) => (
-            <div
-              key={user._id}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 hover:border-blue-500 transition"
-            >
-              <UserCircle className="text-blue-400" size={48} />
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-blue-500/10 p-2 text-blue-400">
+                <Users size={20} />
+              </div>
 
-              <h2 className="text-2xl font-bold text-white mt-4">
-                {user.name}
-              </h2>
-
-              <p className="text-gray-400 flex items-center gap-2 mt-3">
-                <Mail size={17} />
-                {user.email}
-              </p>
-
-              <p className="text-gray-400 flex items-center gap-2 mt-2">
-                <Briefcase size={17} />
-                {user.profession || "No profession added"}
-              </p>
-
-              <div className="flex flex-wrap gap-2 mt-4">
-                {user.interests?.map((interest, index) => (
-                  <span
-                    key={index}
-                    className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm"
-                  >
-                    {interest}
-                  </span>
-                ))}
+              <div>
+                <h2 className="font-semibold text-white">
+                  Registered Users
+                </h2>
+                <p className="text-sm text-gray-400">
+                  {users.length} {users.length === 1 ? "user" : "users"}
+                </p>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
 
-        {filteredUsers.length === 0 && (
-          <p className="text-gray-400 mt-10">No users found.</p>
-        )}
+          {error && (
+            <div className="m-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="px-5 py-12 text-center text-gray-400">
+              Loading users...
+            </div>
+          ) : users.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <Users size={32} className="mx-auto text-gray-600" />
+
+              <p className="mt-3 font-medium text-white">
+                No users found
+              </p>
+
+              <p className="mt-1 text-sm text-gray-400">
+                Registered users will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/50">
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      #
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Name
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Email
+                    </th>
+
+                    <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {users.map((user, index) => (
+                    <tr
+                      key={user._id}
+                      className="border-b border-slate-800/70 last:border-b-0 hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="px-6 py-5 text-sm text-gray-500">
+                        {index + 1}
+                      </td>
+
+                      <td className="px-6 py-5">
+                        <span className="font-medium text-white">
+                          {user.name || "Unnamed User"}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-5 text-sm text-gray-300">
+                        {user.email || "No email"}
+                      </td>
+
+                      <td className="px-6 py-5 text-right">
+                        <button
+                          onClick={() =>
+                            deleteUser(
+                              user._id,
+                              user.name || "this user"
+                            )
+                          }
+                          disabled={deletingId === user._id}
+                          title="Delete user"
+                          aria-label={`Delete ${user.name || "user"}`}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Trash2 size={16} />
+                          {deletingId === user._id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </AdminLayout>
   );

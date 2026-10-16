@@ -22,6 +22,24 @@ const notificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    event: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Event",
+      default: null,
+    },
+
+    type: {
+      type: String,
+      enum: ["event_reminder", "event_expired"],
+      default: undefined,
+    },
+
+    dedupeKey: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
   },
   {
     timestamps: true,
