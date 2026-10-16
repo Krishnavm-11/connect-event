@@ -33,6 +33,50 @@ const navigation = [
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
 
+const StatCard = ({ icon: Icon, label, value, description }) => (
+  <div className="group relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/50 hover:shadow-xl hover:shadow-blue-500/10 sm:p-6">
+    <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-blue-500/5 blur-2xl transition-colors duration-300 group-hover:bg-blue-500/10" />
+
+    <div className="relative flex items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-slate-400 transition-colors group-hover:text-slate-300">
+          {label}
+        </p>
+
+        <p className="mt-3 break-words text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          {value ?? 0}
+        </p>
+
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">
+          {description}
+        </p>
+      </div>
+
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400 transition-all duration-300 group-hover:border-blue-400/40 group-hover:bg-blue-500/15 group-hover:text-blue-300 sm:h-12 sm:w-12">
+        {Icon && <Icon size={21} strokeWidth={1.8} />}
+      </div>
+    </div>
+
+    <div className="absolute bottom-0 left-5 right-5 h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent transition-colors group-hover:via-blue-400/50" />
+  </div>
+);
+
+const EmptyState = ({ icon: Icon, title, description, action }) => (
+  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900 px-6 py-12 text-center">
+    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700 bg-slate-800 text-slate-400">
+      <Icon size={25} />
+    </div>
+
+    <h3 className="mt-4 font-semibold text-white">{title}</h3>
+
+    <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">
+      {description}
+    </p>
+
+    {action && <div className="mt-5">{action}</div>}
+  </div>
+);
+
 function UserDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -48,14 +92,15 @@ function UserDashboard() {
   const [actionLoading, setActionLoading] = useState("");
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = "success") => {
+  const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
+
     window.setTimeout(() => {
       setToast((current) =>
         current?.message === message ? null : current
       );
     }, 3500);
-  };
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -71,9 +116,7 @@ function UserDashboard() {
       if (eventsResult.status === "fulfilled") {
         const data = eventsResult.value.data;
         setRegistrations(
-          Array.isArray(data)
-            ? data
-            : data?.registrations || []
+          Array.isArray(data) ? data : data?.registrations || []
         );
       } else {
         console.error(
@@ -85,9 +128,7 @@ function UserDashboard() {
       if (connectionsResult.status === "fulfilled") {
         const data = connectionsResult.value.data;
         setConnections(
-          Array.isArray(data)
-            ? data
-            : data?.connections || []
+          Array.isArray(data) ? data : data?.connections || []
         );
       } else {
         console.error(
@@ -99,9 +140,7 @@ function UserDashboard() {
       if (requestsResult.status === "fulfilled") {
         const data = requestsResult.value.data;
         setRequests(
-          Array.isArray(data)
-            ? data
-            : data?.requests || []
+          Array.isArray(data) ? data : data?.requests || []
         );
       } else {
         console.error(
@@ -115,11 +154,17 @@ function UserDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  useEffect(() => {
+    return () => {
+      // Prevent pending toast timers from updating an unmounted dashboard.
+    };
+  }, []);
 
   const confirmedTickets = registrations.filter(
     (item) =>
@@ -134,17 +179,14 @@ function UserDashboard() {
 
   const handleNavigation = (section) => {
     setSidebarOpen(false);
+    setActiveSection(section);
 
     if (section === "notifications") {
-      setActiveSection(section);
       window.dispatchEvent(
         new Event("connect-event:open-notifications")
       );
       window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
     }
-
-    setActiveSection(section);
   };
 
   const handleRequest = async (requestId, action) => {
@@ -176,14 +218,18 @@ function UserDashboard() {
   };
 
   const getPerson = (item) =>
-    item?.sender || item?.requester || item?.from || item?.user || item;
+    item?.sender ||
+    item?.requester ||
+    item?.from ||
+    item?.user ||
+    item;
 
   const getPersonName = (item) => {
     const person = getPerson(item);
     return person?.name || person?.fullName || "ConnectEvent Member";
   };
 
-  const getInitials = (name) =>
+  const getInitials = (name = "U") =>
     name
       .split(" ")
       .filter(Boolean)
@@ -212,45 +258,15 @@ function UserDashboard() {
     navigation.find((item) => item.id === activeSection)?.label ||
     "Overview";
 
-  const firstName =
-    user?.name?.trim()?.split(" ")[0] || "there";
-
-  const StatCard = ({ icon: Icon, label, value, description }) => (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-            {value}
-          </p>
-          <p className="mt-2 text-xs text-slate-500">{description}</p>
-        </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-          <Icon size={21} />
-        </div>
-      </div>
-    </div>
-  );
-
-  const EmptyState = ({ icon: Icon, title, description, action }) => (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-        <Icon size={25} />
-      </div>
-      <h3 className="mt-4 font-semibold text-slate-900">{title}</h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-        {description}
-      </p>
-      {action && <div className="mt-5">{action}</div>}
-    </div>
-  );
+  const firstName = user?.name?.trim()?.split(" ")[0] || "there";
 
   const PersonAvatar = ({ person, name }) => (
-    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-100 text-sm font-bold text-orange-700">
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-700 bg-slate-800 text-sm font-bold text-blue-300">
       {person?.profileImage || person?.avatar ? (
         <img
           src={person.profileImage || person.avatar}
           alt={name}
+          loading="lazy"
           className="h-full w-full object-cover"
         />
       ) : (
@@ -266,47 +282,48 @@ function UserDashboard() {
     return (
       <article
         key={item._id}
-        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+        className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-700 hover:shadow-xl hover:shadow-black/20"
       >
-        <div className="relative h-40 overflow-hidden bg-slate-100">
+        <div className="relative h-40 overflow-hidden bg-slate-800">
           {event?.banner || event?.image || event?.coverImage ? (
             <img
               src={event.banner || event.image || event.coverImage}
               alt={event.title || "Event"}
-              className="h-full w-full object-cover"
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
             />
           ) : (
-            <div className="flex h-full items-center justify-center bg-gradient-to-br from-orange-100 via-amber-50 to-slate-100">
-              <CalendarDays size={42} className="text-orange-400" />
+            <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-800 via-slate-900 to-blue-950">
+              <CalendarDays size={42} className="text-blue-400" />
             </div>
           )}
 
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm">
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-slate-950/90 px-3 py-1.5 text-xs font-semibold text-emerald-300 shadow-sm">
             <CheckCircle2 size={14} />
             Confirmed
           </span>
         </div>
 
         <div className="p-5">
-          <h3 className="line-clamp-2 text-lg font-bold text-slate-900">
+          <h3 className="line-clamp-2 text-lg font-bold text-white">
             {event?.title || "Event"}
           </h3>
 
-          <div className="mt-3 space-y-2 text-sm text-slate-500">
+          <div className="mt-3 space-y-2 text-sm text-slate-400">
             <p className="flex items-center gap-2">
-              <CalendarDays size={16} className="shrink-0 text-orange-500" />
+              <CalendarDays size={16} className="shrink-0 text-blue-400" />
               {formatDate(event?.date || event?.startDate)}
             </p>
 
             <p className="flex items-center gap-2">
-              <MapPin size={16} className="shrink-0 text-orange-500" />
+              <MapPin size={16} className="shrink-0 text-blue-400" />
               <span className="line-clamp-1">
                 {event?.location || event?.venue || "Location to be announced"}
               </span>
             </p>
 
             {item.ticketNumber && (
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Ticket: {item.ticketNumber}
               </p>
             )}
@@ -316,7 +333,7 @@ function UserDashboard() {
             <button
               type="button"
               onClick={() => navigate(`/ticket/${item._id}`)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
             >
               <Ticket size={16} />
               View Ticket
@@ -326,7 +343,7 @@ function UserDashboard() {
               type="button"
               disabled={!eventId}
               onClick={() => navigate(`/events/${eventId}/chat`)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <MessageCircle size={16} />
               Event Chat
@@ -347,7 +364,7 @@ function UserDashboard() {
           action={
             <Link
               to="/events"
-              className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
             >
               Explore Events <ArrowUpRight size={16} />
             </Link>
@@ -365,16 +382,23 @@ function UserDashboard() {
           return (
             <div
               key={item._id || person?._id || name}
-              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-5"
+              className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-slate-700"
             >
               <PersonAvatar person={person} name={name} />
+
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-slate-900">{name}</p>
-                <p className="mt-1 truncate text-sm text-slate-500">
-                  {person?.profession || person?.occupation || "ConnectEvent Member"}
+                <p className="truncate font-semibold text-white">{name}</p>
+                <p className="mt-1 truncate text-sm text-slate-400">
+                  {person?.profession ||
+                    person?.occupation ||
+                    "ConnectEvent Member"}
                 </p>
               </div>
-              <CheckCircle2 size={19} className="shrink-0 text-emerald-500" />
+
+              <CheckCircle2
+                size={19}
+                className="shrink-0 text-emerald-400"
+              />
             </div>
           );
         })}
@@ -404,17 +428,20 @@ function UserDashboard() {
           return (
             <div
               key={request._id}
-              className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center"
+              className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:flex-row sm:items-center"
             >
               <PersonAvatar person={person} name={name} />
 
               <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-slate-900">{name}</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  {person?.profession || person?.occupation || "Would like to connect with you"}
+                <h3 className="font-semibold text-white">{name}</h3>
+                <p className="mt-1 text-sm text-slate-400">
+                  {person?.profession ||
+                    person?.occupation ||
+                    "Would like to connect with you"}
                 </p>
+
                 {person?.email && (
-                  <p className="mt-1 truncate text-xs text-slate-400">
+                  <p className="mt-1 truncate text-xs text-slate-500">
                     {person.email}
                   </p>
                 )}
@@ -425,7 +452,7 @@ function UserDashboard() {
                   type="button"
                   disabled={Boolean(actionLoading)}
                   onClick={() => handleRequest(request._id, "accept")}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
                 >
                   <CheckCircle2 size={16} />
                   {accepting ? "Accepting..." : "Accept"}
@@ -435,7 +462,7 @@ function UserDashboard() {
                   type="button"
                   disabled={Boolean(actionLoading)}
                   onClick={() => handleRequest(request._id, "reject")}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 disabled:opacity-50"
                 >
                   <XCircle size={16} />
                   {rejecting ? "Declining..." : "Decline"}
@@ -451,8 +478,8 @@ function UserDashboard() {
   const sectionContent = () => {
     if (loading) {
       return (
-        <div className="flex min-h-64 flex-col items-center justify-center text-slate-500">
-          <RefreshCw size={28} className="animate-spin text-orange-600" />
+        <div className="flex min-h-64 flex-col items-center justify-center text-slate-400">
+          <RefreshCw size={28} className="animate-spin text-blue-400" />
           <p className="mt-3 text-sm">Loading your dashboard...</p>
         </div>
       );
@@ -472,7 +499,7 @@ function UserDashboard() {
             action={
               <Link
                 to="/events"
-                className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
               >
                 Explore Events <ArrowUpRight size={16} />
               </Link>
@@ -497,18 +524,21 @@ function UserDashboard() {
                 value={confirmedTickets.length}
                 description="Your confirmed event bookings"
               />
+
               <StatCard
                 icon={Clock}
                 label="Pending Bookings"
                 value={pendingBookings.length}
                 description="Bookings awaiting confirmation"
               />
+
               <StatCard
                 icon={Users}
                 label="My Connections"
                 value={connections.length}
                 description="People in your network"
               />
+
               <StatCard
                 icon={UserRoundCheck}
                 label="New Requests"
@@ -518,13 +548,14 @@ function UserDashboard() {
             </div>
 
             {pendingBookings.length > 0 && (
-              <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                <Clock size={20} className="mt-0.5 shrink-0 text-amber-600" />
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
+                <Clock size={20} className="mt-0.5 shrink-0 text-amber-400" />
+
                 <div>
-                  <h3 className="font-semibold text-amber-900">
+                  <h3 className="font-semibold text-amber-200">
                     You have pending bookings
                   </h3>
-                  <p className="mt-1 text-sm leading-6 text-amber-800">
+                  <p className="mt-1 text-sm leading-6 text-amber-100/70">
                     {pendingBookings.length} booking
                     {pendingBookings.length === 1 ? " is" : "s are"} still pending.
                     Check the event details and booking status before relying on a ticket.
@@ -536,17 +567,18 @@ function UserDashboard() {
             <section>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold text-white">
                     Your Upcoming Events
                   </h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-slate-400">
                     Your most recent confirmed tickets
                   </p>
                 </div>
+
                 <button
                   type="button"
                   onClick={() => handleNavigation("tickets")}
-                  className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-orange-600 hover:text-orange-700"
+                  className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-400 transition hover:text-blue-300"
                 >
                   View all <ChevronRight size={17} />
                 </button>
@@ -564,7 +596,7 @@ function UserDashboard() {
                   action={
                     <Link
                       to="/events"
-                      className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
                     >
                       Discover Events <ArrowUpRight size={16} />
                     </Link>
@@ -576,24 +608,27 @@ function UserDashboard() {
             <section>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold text-white">
                     Connection Requests
                   </h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-slate-400">
                     Build your event community
                   </p>
                 </div>
+
                 <button
                   type="button"
                   onClick={() => handleNavigation("requests")}
-                  className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-orange-600 hover:text-orange-700"
+                  className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-400 transition hover:text-blue-300"
                 >
                   View all <ChevronRight size={17} />
                 </button>
               </div>
 
-              {requests.length ? renderRequests() : (
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
+              {requests.length ? (
+                renderRequests()
+              ) : (
+                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-400">
                   You're all caught up. New connection requests will appear here.
                 </div>
               )}
@@ -604,16 +639,16 @@ function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       <Navbar />
 
       {toast && (
         <div
           role="status"
-          className={`fixed right-4 top-20 z-[100] flex max-w-sm items-center gap-3 rounded-xl border px-4 py-3 shadow-xl ${
+          className={`fixed right-4 top-20 z-[100] flex max-w-sm items-center gap-3 rounded-xl border bg-slate-900 px-4 py-3 shadow-xl ${
             toast.type === "error"
-              ? "border-red-200 bg-white text-red-700"
-              : "border-emerald-200 bg-white text-emerald-700"
+              ? "border-red-500/30 text-red-300"
+              : "border-emerald-500/30 text-emerald-300"
           }`}
         >
           {toast.type === "error" ? (
@@ -621,12 +656,14 @@ function UserDashboard() {
           ) : (
             <CheckCircle2 size={20} className="shrink-0" />
           )}
+
           <p className="flex-1 text-sm font-medium">{toast.message}</p>
+
           <button
             type="button"
             aria-label="Dismiss message"
             onClick={() => setToast(null)}
-            className="rounded-lg p-1 hover:bg-slate-100"
+            className="rounded-lg p-1 transition hover:bg-slate-800"
           >
             <X size={16} />
           </button>
@@ -636,10 +673,10 @@ function UserDashboard() {
       <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
         <div className="mb-6 flex items-center justify-between gap-4 lg:hidden">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">
               Member dashboard
             </p>
-            <h1 className="mt-1 text-xl font-bold text-slate-900">
+            <h1 className="mt-1 text-xl font-bold text-white">
               Welcome, {firstName}
             </h1>
           </div>
@@ -649,37 +686,36 @@ function UserDashboard() {
             onClick={() => setSidebarOpen((open) => !open)}
             aria-label={sidebarOpen ? "Close menu" : "Open menu"}
             aria-expanded={sidebarOpen}
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-200 transition hover:bg-slate-800"
           >
             {sidebarOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)]">
-          <aside
-            className={`${
-              sidebarOpen ? "block" : "hidden"
-            } lg:block`}
-          >
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:sticky lg:top-24">
-              <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 text-white">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500 text-lg font-bold">
+          <aside className={`${sidebarOpen ? "block" : "hidden"} lg:block`}>
+            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm lg:sticky lg:top-24">
+              <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 text-white">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/15 text-lg font-bold text-blue-300">
                   {getInitials(user?.name || "U")}
                 </div>
+
                 <h2 className="mt-4 truncate text-lg font-bold">
                   {user?.name || "Event Member"}
                 </h2>
-                <p className="mt-1 truncate text-sm text-slate-300">
+
+                <p className="mt-1 truncate text-sm text-slate-400">
                   {user?.email || "Welcome to ConnectEvent"}
                 </p>
-                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">
+
+                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   Member account
                 </div>
               </div>
 
               <nav className="p-3" aria-label="User dashboard navigation">
-                <p className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                <p className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
                   Workspace
                 </p>
 
@@ -694,45 +730,49 @@ function UserDashboard() {
                       aria-current={active ? "page" : undefined}
                       className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
                         active
-                          ? "bg-orange-50 text-orange-700"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                          ? "border border-blue-500/10 bg-blue-500/10 text-blue-300"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
                       }`}
                     >
                       <Icon
                         size={19}
-                        className={active ? "text-orange-600" : "text-slate-400"}
+                        className={active ? "text-blue-400" : "text-slate-500"}
                       />
+
                       <span className="flex-1">{label}</span>
+
                       {active && (
-                        <span className="h-5 w-1 rounded-full bg-orange-500" />
+                        <span className="h-5 w-1 rounded-full bg-blue-400" />
                       )}
                     </button>
                   );
                 })}
 
-                <div className="my-4 border-t border-slate-100" />
+                <div className="my-4 border-t border-slate-800" />
 
                 <Link
                   to="/events"
-                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-orange-700"
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-400 transition hover:bg-slate-800 hover:text-blue-300"
                 >
-                  <CalendarDays size={19} className="text-slate-400" />
+                  <CalendarDays size={19} className="text-slate-500" />
                   <span className="flex-1">Explore Events</span>
-                  <ArrowUpRight size={16} className="text-slate-400" />
+                  <ArrowUpRight size={16} className="text-slate-500" />
                 </Link>
               </nav>
 
-              <div className="mx-3 mb-3 rounded-xl bg-slate-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  <MessageCircle size={17} className="text-orange-600" />
+              <div className="mx-3 mb-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
+                  <MessageCircle size={17} className="text-blue-400" />
                   Meet your community
                 </div>
-                <p className="mt-2 text-xs leading-5 text-slate-500">
+
+                <p className="mt-2 text-xs leading-5 text-slate-400">
                   Discover events, meet people, and build meaningful connections.
                 </p>
+
                 <Link
                   to="/events"
-                  className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-blue-400 transition hover:text-blue-300"
                 >
                   Find an event <ArrowUpRight size={14} />
                 </Link>
@@ -743,15 +783,17 @@ function UserDashboard() {
           <main className="min-w-0">
             <div className="mb-6 hidden items-center justify-between gap-4 lg:flex">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">
                   Your workspace
                 </p>
-                <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 xl:text-3xl">
+
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-white xl:text-3xl">
                   {activeSection === "overview"
                     ? `Welcome back, ${firstName}`
                     : pageTitle}
                 </h1>
-                <p className="mt-2 text-sm text-slate-500">
+
+                <p className="mt-2 text-sm text-slate-400">
                   {activeSection === "overview"
                     ? "Your events, connections, and community — all in one place."
                     : `Manage your ${pageTitle.toLowerCase()} in one place.`}
@@ -762,7 +804,7 @@ function UserDashboard() {
                 type="button"
                 onClick={loadDashboard}
                 disabled={loading}
-                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-300 shadow-sm transition hover:bg-slate-800 disabled:opacity-50"
               >
                 <RefreshCw
                   size={16}
@@ -774,19 +816,18 @@ function UserDashboard() {
 
             <div className="mb-5 flex items-center justify-between gap-3 lg:hidden">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  {pageTitle}
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <h2 className="text-lg font-bold text-white">{pageTitle}</h2>
+                <p className="mt-1 text-xs text-slate-400">
                   Manage your ConnectEvent activity
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={loadDashboard}
                 disabled={loading}
                 aria-label="Refresh dashboard"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 disabled:opacity-50"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-50"
               >
                 <RefreshCw
                   size={17}
