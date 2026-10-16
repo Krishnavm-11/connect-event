@@ -1,18 +1,25 @@
+
 import { useEffect, useState } from "react";
 import { Search, User, Calendar } from "lucide-react";
+import toast from "react-hot-toast";
 import AdminLayout from "../components/AdminLayout";
 import API from "../services/api";
 
 function AdminRegistrations() {
   const [registrations, setRegistrations] = useState([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const getRegistrations = async () => {
     try {
       const res = await API.get("/admin/registrations");
       setRegistrations(res.data);
     } catch (error) {
-      console.log(error.response?.data?.message || error.message);
+      toast.error(
+        error.response?.data?.message || "Failed to load registrations."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -20,10 +27,16 @@ function AdminRegistrations() {
     getRegistrations();
   }, []);
 
-  const filtered = registrations.filter((item) =>
-    item.user?.name.toLowerCase().includes(search.toLowerCase()) ||
-    item.event?.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = registrations.filter((item) => {
+    const userName = item.user?.name || "";
+    const eventTitle = item.event?.title || "";
+    const query = search.toLowerCase();
+
+    return (
+      userName.toLowerCase().includes(query) ||
+      eventTitle.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <AdminLayout>
@@ -48,41 +61,45 @@ function AdminRegistrations() {
       </div>
 
       <div className="mt-10 space-y-5">
-        {filtered.map((item) => (
-          <div
-            key={item._id}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex justify-between items-center"
-          >
-            <div>
-              <h3 className="text-white text-xl font-semibold flex items-center gap-2">
-                <User size={18} />
-                {item.user?.name}
-              </h3>
+        {loading ? (
+          <p className="text-gray-400">Loading registrations...</p>
+        ) : (
+          <>
+            {filtered.map((item) => (
+              <div
+                key={item._id}
+                className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row md:justify-between md:items-center gap-5"
+              >
+                <div>
+                  <h3 className="text-white text-xl font-semibold flex items-center gap-2">
+                    <User size={18} />
+                    {item.user?.name || "Unknown user"}
+                  </h3>
 
-              <p className="text-gray-400 mt-2">
-                {item.user?.email}
-              </p>
-            </div>
+                  <p className="text-gray-400 mt-2">
+                    {item.user?.email || "No email"}
+                  </p>
+                </div>
 
-            <div>
-              <h3 className="text-white font-semibold">
-                {item.event?.title}
-              </h3>
+                <div>
+                  <h3 className="text-white font-semibold">
+                    {item.event?.title || "Event unavailable"}
+                  </h3>
 
-              <p className="text-gray-400 flex items-center gap-2 mt-2">
-                <Calendar size={16} />
-                {item.event?.date
-                  ? new Date(item.event.date).toLocaleDateString()
-                  : "N/A"}
-              </p>
-            </div>
-          </div>
-        ))}
+                  <p className="text-gray-400 flex items-center gap-2 mt-2">
+                    <Calendar size={16} />
+                    {item.event?.date
+                      ? new Date(item.event.date).toLocaleDateString()
+                      : "N/A"}
+                  </p>
+                </div>
+              </div>
+            ))}
 
-        {filtered.length === 0 && (
-          <p className="text-gray-400">
-            No registrations found.
-          </p>
+            {filtered.length === 0 && (
+              <p className="text-gray-400">No registrations found.</p>
+            )}
+          </>
         )}
       </div>
     </AdminLayout>

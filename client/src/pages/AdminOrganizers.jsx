@@ -1,5 +1,7 @@
+
 import { useEffect, useState } from "react";
 import { Search, Trash2, RefreshCw, Users } from "lucide-react";
+import toast from "react-hot-toast";
 import AdminLayout from "../components/AdminLayout";
 import API from "../services/api";
 
@@ -8,17 +10,15 @@ function AdminOrganizers() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
-  const [error, setError] = useState("");
 
   const getOrganizers = async () => {
     try {
       setLoading(true);
-      setError("");
 
       const res = await API.get("/admin/organizers");
       setOrganizers(res.data);
     } catch (error) {
-      setError(
+      toast.error(
         error.response?.data?.message || "Failed to load organizers."
       );
     } finally {
@@ -33,22 +33,24 @@ function AdminOrganizers() {
   const toggleStatus = async (id) => {
     try {
       setProcessingId(id);
-      setError("");
 
       const res = await API.put(`/admin/organizers/${id}`);
 
       setOrganizers((previous) =>
         previous.map((organizer) =>
           organizer._id === id
-            ? {
-                ...organizer,
-                isBlocked: res.data.isBlocked,
-              }
+            ? { ...organizer, isBlocked: res.data.isBlocked }
             : organizer
         )
       );
+
+      toast.success(
+        res.data.isBlocked
+          ? "Organizer blocked successfully."
+          : "Organizer unblocked successfully."
+      );
     } catch (error) {
-      setError(
+      toast.error(
         error.response?.data?.message || "Unable to update organizer."
       );
     } finally {
@@ -65,15 +67,16 @@ function AdminOrganizers() {
 
     try {
       setProcessingId(organizer._id);
-      setError("");
 
       await API.delete(`/admin/organizers/${organizer._id}`);
 
       setOrganizers((previous) =>
         previous.filter((item) => item._id !== organizer._id)
       );
+
+      toast.success("Organizer deleted successfully.");
     } catch (error) {
-      setError(
+      toast.error(
         error.response?.data?.message || "Failed to delete organizer."
       );
     } finally {
@@ -84,10 +87,11 @@ function AdminOrganizers() {
   const filteredOrganizers = organizers.filter((organizer) => {
     const name = organizer.name || "";
     const email = organizer.email || "";
+    const query = search.toLowerCase();
 
     return (
-      name.toLowerCase().includes(search.toLowerCase()) ||
-      email.toLowerCase().includes(search.toLowerCase())
+      name.toLowerCase().includes(query) ||
+      email.toLowerCase().includes(query)
     );
   });
 
@@ -126,12 +130,6 @@ function AdminOrganizers() {
             className="bg-transparent outline-none text-white py-3 w-full"
           />
         </div>
-
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl">
-            {error}
-          </div>
-        )}
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
           <div className="flex items-center gap-3 p-5 border-b border-slate-800">

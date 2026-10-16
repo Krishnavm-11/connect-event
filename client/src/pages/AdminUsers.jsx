@@ -1,5 +1,7 @@
+
 import { useEffect, useState } from "react";
 import { Trash2, Users, RefreshCw } from "lucide-react";
+import toast from "react-hot-toast";
 import AdminLayout from "../components/AdminLayout";
 import API from "../services/api";
 
@@ -7,17 +9,15 @@ function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-  const [error, setError] = useState("");
 
   const getUsers = async () => {
     try {
       setLoading(true);
-      setError("");
 
       const res = await API.get("/admin/users");
       setUsers(res.data);
     } catch (error) {
-      setError(
+      toast.error(
         error.response?.data?.message || "Failed to load users."
       );
     } finally {
@@ -38,15 +38,16 @@ function AdminUsers() {
 
     try {
       setDeletingId(id);
-      setError("");
 
       await API.delete(`/admin/users/${id}`);
 
       setUsers((previousUsers) =>
         previousUsers.filter((user) => user._id !== id)
       );
+
+      toast.success("User deleted successfully.");
     } catch (error) {
-      setError(
+      toast.error(
         error.response?.data?.message || "Failed to delete user."
       );
     } finally {
@@ -95,12 +96,6 @@ function AdminUsers() {
               </div>
             </div>
           </div>
-
-          {error && (
-            <div className="m-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
 
           {loading ? (
             <div className="px-5 py-12 text-center text-gray-400">

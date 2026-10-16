@@ -1,5 +1,7 @@
+
 import { useEffect, useState } from "react";
 import { Calendar, MapPin, CheckCircle, XCircle } from "lucide-react";
+import toast from "react-hot-toast";
 import AdminLayout from "../components/AdminLayout";
 import API from "../services/api";
 
@@ -13,8 +15,8 @@ function AdminEvents() {
       const res = await API.get("/admin/events");
       setEvents(res.data);
     } catch (error) {
-      console.error(
-        error.response?.data?.message || error.message
+      toast.error(
+        error.response?.data?.message || "Failed to load events."
       );
     } finally {
       setLoading(false);
@@ -38,9 +40,11 @@ function AdminEvents() {
             : event
         )
       );
+
+      toast.success("Event approved successfully!");
     } catch (error) {
-      window.alert(
-        error.response?.data?.message || "Approve failed"
+      toast.error(
+        error.response?.data?.message || "Failed to approve event."
       );
       await getEvents();
     } finally {
@@ -61,9 +65,11 @@ function AdminEvents() {
             : event
         )
       );
+
+      toast.success("Event rejected successfully.");
     } catch (error) {
-      window.alert(
-        error.response?.data?.message || "Reject failed"
+      toast.error(
+        error.response?.data?.message || "Failed to reject event."
       );
       await getEvents();
     } finally {
@@ -136,7 +142,6 @@ function AdminEvents() {
                   <div className="mt-5 space-y-3 text-gray-300">
                     <p className="flex items-center gap-2">
                       <Calendar size={18} className="text-blue-400" />
-
                       {event.date
                         ? new Date(event.date).toLocaleDateString()
                         : "Date not available"}
@@ -196,9 +201,7 @@ function AdminEvents() {
         </div>
 
         {!loading && events.length === 0 && (
-          <p className="text-gray-400 mt-10">
-            No events found.
-          </p>
+          <p className="text-gray-400 mt-10">No events found.</p>
         )}
       </div>
     </AdminLayout>
