@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, User, Calendar } from "lucide-react";
-import toast from "react-hot-toast";
+import notify from "../utils/toast";
 import AdminLayout from "../components/AdminLayout";
 import API from "../services/api";
 
@@ -15,8 +15,8 @@ function AdminRegistrations() {
       const res = await API.get("/admin/registrations");
       setRegistrations(res.data);
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to load registrations."
+      notify.error(
+        error.response?.data?.message || "Couldn't load registrations."
       );
     } finally {
       setLoading(false);
@@ -28,13 +28,13 @@ function AdminRegistrations() {
   }, []);
 
   const filtered = registrations.filter((item) => {
-    const userName = item.user?.name || "";
-    const eventTitle = item.event?.title || "";
+    const name = item.user?.name || "";
+    const title = item.event?.title || "";
     const query = search.toLowerCase();
 
     return (
-      userName.toLowerCase().includes(query) ||
-      eventTitle.toLowerCase().includes(query)
+      name.toLowerCase().includes(query) ||
+      title.toLowerCase().includes(query)
     );
   });
 
@@ -50,10 +50,9 @@ function AdminRegistrations() {
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl flex items-center max-w-md mt-8">
         <Search className="ml-4 text-gray-400" size={18} />
-
         <input
           type="text"
-          placeholder="Search..."
+          placeholder="Search by attendee or event..."
           className="bg-transparent outline-none px-4 py-3 text-white w-full"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -73,11 +72,10 @@ function AdminRegistrations() {
                 <div>
                   <h3 className="text-white text-xl font-semibold flex items-center gap-2">
                     <User size={18} />
-                    {item.user?.name || "Unknown user"}
+                    {item.user?.name || "Unknown attendee"}
                   </h3>
-
                   <p className="text-gray-400 mt-2">
-                    {item.user?.email || "No email"}
+                    {item.user?.email || "Email unavailable"}
                   </p>
                 </div>
 
@@ -85,12 +83,11 @@ function AdminRegistrations() {
                   <h3 className="text-white font-semibold">
                     {item.event?.title || "Event unavailable"}
                   </h3>
-
                   <p className="text-gray-400 flex items-center gap-2 mt-2">
                     <Calendar size={16} />
                     {item.event?.date
                       ? new Date(item.event.date).toLocaleDateString()
-                      : "N/A"}
+                      : "Date unavailable"}
                   </p>
                 </div>
               </div>

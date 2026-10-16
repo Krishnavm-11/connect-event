@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, Trash2, RefreshCw, Users } from "lucide-react";
-import toast from "react-hot-toast";
+import notify from "../utils/toast";
 import AdminLayout from "../components/AdminLayout";
 import API from "../services/api";
 
@@ -14,12 +14,11 @@ function AdminOrganizers() {
   const getOrganizers = async () => {
     try {
       setLoading(true);
-
       const res = await API.get("/admin/organizers");
       setOrganizers(res.data);
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to load organizers."
+      notify.error(
+        error.response?.data?.message || "Couldn't load organizers."
       );
     } finally {
       setLoading(false);
@@ -33,7 +32,6 @@ function AdminOrganizers() {
   const toggleStatus = async (id) => {
     try {
       setProcessingId(id);
-
       const res = await API.put(`/admin/organizers/${id}`);
 
       setOrganizers((previous) =>
@@ -44,14 +42,14 @@ function AdminOrganizers() {
         )
       );
 
-      toast.success(
+      notify.success(
         res.data.isBlocked
-          ? "Organizer blocked successfully."
-          : "Organizer unblocked successfully."
+          ? "Organizer access has been blocked."
+          : "Organizer access has been restored."
       );
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Unable to update organizer."
+      notify.error(
+        error.response?.data?.message || "Couldn't update organizer access."
       );
     } finally {
       setProcessingId(null);
@@ -67,17 +65,16 @@ function AdminOrganizers() {
 
     try {
       setProcessingId(organizer._id);
-
       await API.delete(`/admin/organizers/${organizer._id}`);
 
       setOrganizers((previous) =>
         previous.filter((item) => item._id !== organizer._id)
       );
 
-      toast.success("Organizer deleted successfully.");
+      notify.success("Organizer account deleted successfully.");
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to delete organizer."
+      notify.error(
+        error.response?.data?.message || "Couldn't delete organizer."
       );
     } finally {
       setProcessingId(null);
@@ -85,13 +82,10 @@ function AdminOrganizers() {
   };
 
   const filteredOrganizers = organizers.filter((organizer) => {
-    const name = organizer.name || "";
-    const email = organizer.email || "";
     const query = search.toLowerCase();
-
     return (
-      name.toLowerCase().includes(query) ||
-      email.toLowerCase().includes(query)
+      (organizer.name || "").toLowerCase().includes(query) ||
+      (organizer.email || "").toLowerCase().includes(query)
     );
   });
 
@@ -103,7 +97,6 @@ function AdminOrganizers() {
             <h1 className="text-3xl md:text-4xl font-bold text-white">
               Organizer Management
             </h1>
-
             <p className="text-gray-400 mt-2">
               View, monitor and manage event organizers.
             </p>
@@ -121,7 +114,6 @@ function AdminOrganizers() {
 
         <div className="flex items-center gap-3 max-w-md bg-slate-900 border border-slate-800 rounded-xl px-4">
           <Search size={19} className="text-gray-400" />
-
           <input
             type="text"
             placeholder="Search by name or email..."
@@ -134,7 +126,6 @@ function AdminOrganizers() {
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
           <div className="flex items-center gap-3 p-5 border-b border-slate-800">
             <Users size={22} className="text-blue-400" />
-
             <div>
               <h2 className="text-white font-semibold">
                 Registered Organizers
@@ -175,15 +166,12 @@ function AdminOrganizers() {
                       <td className="px-5 py-5 text-sm text-gray-500">
                         {index + 1}
                       </td>
-
                       <td className="px-5 py-5 font-medium text-white">
                         {organizer.name || "Unnamed Organizer"}
                       </td>
-
                       <td className="px-5 py-5 text-sm text-gray-300">
                         {organizer.email}
                       </td>
-
                       <td className="px-5 py-5">
                         <span
                           className={`inline-flex px-3 py-1 rounded-full text-xs ${
@@ -195,7 +183,6 @@ function AdminOrganizers() {
                           {organizer.isBlocked ? "Blocked" : "Active"}
                         </span>
                       </td>
-
                       <td className="px-5 py-5">
                         <div className="flex justify-end gap-2">
                           <button

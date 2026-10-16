@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Calendar, MapPin, CheckCircle, XCircle } from "lucide-react";
-import toast from "react-hot-toast";
+import notify from "../utils/toast";
 import AdminLayout from "../components/AdminLayout";
 import API from "../services/api";
 
@@ -15,8 +15,8 @@ function AdminEvents() {
       const res = await API.get("/admin/events");
       setEvents(res.data);
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to load events."
+      notify.error(
+        error.response?.data?.message || "Couldn't load events. Please try again."
       );
     } finally {
       setLoading(false);
@@ -30,21 +30,20 @@ function AdminEvents() {
   const approveEvent = async (id) => {
     try {
       setProcessingId(id);
-
       const res = await API.put(`/admin/events/${id}/approve`);
 
-      setEvents((previousEvents) =>
-        previousEvents.map((event) =>
+      setEvents((previous) =>
+        previous.map((event) =>
           event._id === id
             ? { ...event, ...res.data.event, status: "approved" }
             : event
         )
       );
 
-      toast.success("Event approved successfully!");
+      notify.success("Event approved! It's ready to go.");
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to approve event."
+      notify.error(
+        error.response?.data?.message || "Couldn't approve this event."
       );
       await getEvents();
     } finally {
@@ -55,21 +54,20 @@ function AdminEvents() {
   const rejectEvent = async (id) => {
     try {
       setProcessingId(id);
-
       const res = await API.put(`/admin/events/${id}/reject`);
 
-      setEvents((previousEvents) =>
-        previousEvents.map((event) =>
+      setEvents((previous) =>
+        previous.map((event) =>
           event._id === id
             ? { ...event, ...res.data.event, status: "rejected" }
             : event
         )
       );
 
-      toast.success("Event rejected successfully.");
+      notify.success("Event rejected. The status has been updated.");
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to reject event."
+      notify.error(
+        error.response?.data?.message || "Couldn't reject this event."
       );
       await getEvents();
     } finally {
@@ -80,10 +78,7 @@ function AdminEvents() {
   return (
     <AdminLayout>
       <div>
-        <h1 className="text-4xl font-bold text-white">
-          Event Management
-        </h1>
-
+        <h1 className="text-4xl font-bold text-white">Event Management</h1>
         <p className="text-gray-400 mt-2">
           Review and manage organizer events.
         </p>
@@ -102,33 +97,30 @@ function AdminEvents() {
                     event.banner ||
                     "https://images.unsplash.com/photo-1540575467063-178a50c2df87"
                   }
-                  alt={event.title}
+                  alt={event.title || "Event banner"}
                   className="h-56 w-full object-cover"
                 />
 
                 <div className="p-6">
                   <div className="flex justify-between items-center gap-4 flex-wrap">
                     <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm">
-                      {event.category}
+                      {event.category || "General"}
                     </span>
 
-                    {event.status === "approved" && (
-                      <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm">
-                        Approved
-                      </span>
-                    )}
-
-                    {event.status === "pending" && (
-                      <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-sm">
-                        Pending
-                      </span>
-                    )}
-
-                    {event.status === "rejected" && (
-                      <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-sm">
-                        Rejected
-                      </span>
-                    )}
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        event.status === "approved"
+                          ? "bg-green-500/20 text-green-400"
+                          : event.status === "rejected"
+                            ? "bg-red-500/20 text-red-400"
+                            : "bg-yellow-500/20 text-yellow-400"
+                      }`}
+                    >
+                      {event.status
+                        ? event.status.charAt(0).toUpperCase() +
+                          event.status.slice(1)
+                        : "Pending"}
+                    </span>
                   </div>
 
                   <h2 className="text-2xl font-bold text-white mt-4">
@@ -154,12 +146,12 @@ function AdminEvents() {
                   </div>
 
                   <div className="flex gap-3 mt-6">
-                    {event.status === "pending" && (
+                    {event.status === "pending" ? (
                       <>
                         <button
                           onClick={() => approveEvent(event._id)}
                           disabled={processingId === event._id}
-                          className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl flex justify-center items-center gap-2"
+                          className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl flex justify-center items-center gap-2 transition"
                         >
                           <CheckCircle size={18} />
                           {processingId === event._id
@@ -170,7 +162,7 @@ function AdminEvents() {
                         <button
                           onClick={() => rejectEvent(event._id)}
                           disabled={processingId === event._id}
-                          className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl flex justify-center items-center gap-2"
+                          className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl flex justify-center items-center gap-2 transition"
                         >
                           <XCircle size={18} />
                           {processingId === event._id
@@ -178,16 +170,12 @@ function AdminEvents() {
                             : "Reject"}
                         </button>
                       </>
-                    )}
-
-                    {event.status === "approved" && (
+                    ) : event.status === "approved" ? (
                       <div className="w-full bg-green-500/10 border border-green-500/20 text-green-400 py-3 rounded-xl flex justify-center items-center gap-2">
                         <CheckCircle size={18} />
                         Event Approved
                       </div>
-                    )}
-
-                    {event.status === "rejected" && (
+                    ) : (
                       <div className="w-full bg-red-500/10 border border-red-500/20 text-red-400 py-3 rounded-xl flex justify-center items-center gap-2">
                         <XCircle size={18} />
                         Event Rejected

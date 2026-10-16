@@ -32,29 +32,16 @@ function App() {
     <>
       <Toaster
         position="top-right"
+        gutter={10}
         reverseOrder={false}
         toastOptions={{
           duration: 3000,
-          style: {
-            background: "#171717",
-            color: "#ffffff",
-            borderRadius: "12px",
-            padding: "14px 18px",
-            fontSize: "14px",
-            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.15)",
-          },
-          success: {
-            iconTheme: {
-              primary: "#10b981",
-              secondary: "#ffffff",
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: "#ef4444",
-              secondary: "#ffffff",
-            },
-          },
+          className: "",
+        }}
+        containerStyle={{
+          top: 20,
+          right: 20,
+          zIndex: 99999,
         }}
       />
 
