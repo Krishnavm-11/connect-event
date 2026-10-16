@@ -1,6 +1,10 @@
-
 import toast from "react-hot-toast";
-import { CheckCircle2, XCircle, Info, LoaderCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Info,
+  LoaderCircle,
+} from "lucide-react";
 
 const baseStyle = {
   background: "#111827",
@@ -10,18 +14,18 @@ const baseStyle = {
   padding: "14px 16px",
   fontSize: "14px",
   fontWeight: "500",
-  boxShadow: "0 12px 35px rgba(0, 0, 0, 0.35)",
+  boxShadow: "0 12px 35px rgba(0,0,0,.35)",
   maxWidth: "380px",
 };
 
-export const notify = {
+const notify = {
   success(message) {
     return toast(message, {
       icon: <CheckCircle2 size={21} color="#34d399" />,
       duration: 3000,
       style: {
         ...baseStyle,
-        border: "1px solid rgba(52, 211, 153, 0.35)",
+        border: "1px solid rgba(52,211,153,.35)",
       },
     });
   },
@@ -32,7 +36,7 @@ export const notify = {
       duration: 4000,
       style: {
         ...baseStyle,
-        border: "1px solid rgba(251, 113, 133, 0.4)",
+        border: "1px solid rgba(251,113,133,.4)",
       },
     });
   },
@@ -43,7 +47,7 @@ export const notify = {
       duration: 3000,
       style: {
         ...baseStyle,
-        border: "1px solid rgba(96, 165, 250, 0.35)",
+        border: "1px solid rgba(96,165,250,.35)",
       },
     });
   },
