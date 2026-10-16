@@ -31,12 +31,24 @@ export const createEvent = async (req, res) => {
     let banner = "";
 
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "events",
-      });
+  console.log("Uploading event banner:", req.file.originalname);
+  console.log("Cloudinary cloud name:", process.env.CLOUDINARY_CLOUD_NAME);
+  console.log(
+    "Cloudinary API key exists:",
+    Boolean(process.env.CLOUDINARY_API_KEY)
+  );
+  console.log(
+    "Cloudinary API secret exists:",
+    Boolean(process.env.CLOUDINARY_API_SECRET)
+  );
 
-      banner = result.secure_url;
-    }
+  const result = await cloudinary.uploader.upload(req.file.path, {
+    folder: "events",
+    resource_type: "image",
+  });
+
+  banner = result.secure_url;
+}
 
     let speakers = [];
 
