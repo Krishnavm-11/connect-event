@@ -6,12 +6,18 @@ import Registration from "../models/Registration.js";
 export const getAdminStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments({ role: "user" });
-    const totalOrganizers = await User.countDocuments({ role: "organizer" });
+    const totalOrganizers = await User.countDocuments({
+      role: "organizer",
+    });
     const totalEvents = await Event.countDocuments();
-    const pendingEvents = await Event.countDocuments({ status: "pending" });
-    const approvedEvents = await Event.countDocuments({ status: "approved" });
+    const pendingEvents = await Event.countDocuments({
+      status: "pending",
+    });
+    const approvedEvents = await Event.countDocuments({
+      status: "approved",
+    });
 
-    res.json({
+    return res.json({
       totalUsers,
       totalOrganizers,
       totalEvents,
@@ -19,7 +25,7 @@ export const getAdminStats = async (req, res) => {
       approvedEvents,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -31,9 +37,9 @@ export const getAllEventsAdmin = async (req, res) => {
       .populate("organizer", "name email profession")
       .sort({ createdAt: -1 });
 
-    res.json(events);
+    return res.json(events);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -49,6 +55,12 @@ export const approveEvent = async (req, res) => {
       });
     }
 
+    if (event.status !== "pending") {
+      return res.status(400).json({
+        message: `This event is already ${event.status} and cannot be approved again.`,
+      });
+    }
+
     event.status = "approved";
     await event.save();
 
@@ -58,12 +70,12 @@ export const approveEvent = async (req, res) => {
       message: `${event.title} has been approved by admin.`,
     });
 
-    res.json({
+    return res.json({
       message: "Event approved successfully",
       event,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -79,6 +91,15 @@ export const rejectEvent = async (req, res) => {
       });
     }
 
+    if (event.status !== "pending") {
+      return res.status(400).json({
+        message:
+          event.status === "approved"
+            ? "This event has already been approved and cannot be rejected."
+            : "This event has already been rejected.",
+      });
+    }
+
     event.status = "rejected";
     await event.save();
 
@@ -88,12 +109,12 @@ export const rejectEvent = async (req, res) => {
       message: `${event.title} has been rejected by admin.`,
     });
 
-    res.json({
+    return res.json({
       message: "Event rejected successfully",
       event,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -105,9 +126,9 @@ export const getAllUsersAdmin = async (req, res) => {
       .select("-password")
       .sort({ createdAt: -1 });
 
-    res.json(users);
+    return res.json(users);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -119,9 +140,9 @@ export const getAllOrganizersAdmin = async (req, res) => {
       .select("-password")
       .sort({ createdAt: -1 });
 
-    res.json(organizers);
+    return res.json(organizers);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -141,13 +162,13 @@ export const toggleOrganizerStatus = async (req, res) => {
 
     await organizer.save();
 
-    res.json({
+    return res.json({
       message: organizer.isBlocked
         ? "Organizer blocked successfully"
         : "Organizer unblocked successfully",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
@@ -160,9 +181,9 @@ export const getAllRegistrationsAdmin = async (req, res) => {
       .populate("event", "title category date")
       .sort({ createdAt: -1 });
 
-    res.json(registrations);
+    return res.json(registrations);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
