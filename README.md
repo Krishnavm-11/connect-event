@@ -1,132 +1,138 @@
-# 🎟️ ConnectEvent — Event Networking Platform
+# 🎟️ ConnectEvent --- Event Networking Platform
 
-A full-stack **MERN Event Networking Platform** that helps users discover events, register for them, connect with other attendees, and communicate through real-time chat.
+A full-stack **MERN Event Networking Platform** that helps users
+discover events, register for them, connect with other attendees, and
+communicate through real-time chat.
 
-The platform also provides dedicated functionality for **event organizers and administrators** to manage events, users, registrations, and platform activities.
+The platform also provides dedicated functionality for **event
+organizers and administrators** to manage events, users, registrations,
+and platform activities.
 
 ## 🌐 Live Demo
 
 🚀 **Live Application:**
-[https://connect-event-iota.vercel.app]
+[ConnectEvent](https://connect-event-iota.vercel.app)
 
----
+------------------------------------------------------------------------
 
 ## 📌 About the Project
 
-**ConnectEvent** is a modern event networking and ticketing platform designed to make event discovery and networking easier.
+**ConnectEvent** is a modern event networking and ticketing platform
+designed to make event discovery and networking easier.
 
-Users can browse upcoming events, view event details, register for events, connect with other attendees, receive notifications, and participate in real-time event conversations.
+Users can browse upcoming events, view event details, register for
+events, connect with other attendees, receive notifications, and
+participate in real-time event conversations.
 
-Organizers can create and manage events, while administrators can review events, manage users and organizers, and monitor registrations.
+Organizers can create and manage events, while administrators can review
+events, manage users and organizers, and monitor registrations.
 
----
+------------------------------------------------------------------------
 
 ## ✨ Key Features
 
 ### 👤 User Features
 
-* User registration and login
-* JWT-based authentication
-* Browse upcoming events
-* Search and filter events
-* View detailed event information
-* Register for events
-* View registered events
-* Connect with other attendees
-* Send and receive connection requests
-* Real-time event chat
-* Notifications
-* User profile management
-* Contact/support messaging
+-   User registration and login
+-   JWT-based authentication
+-   Browse upcoming events
+-   Search and filter events
+-   View detailed event information
+-   Register for events
+-   View registered events
+-   Connect with other attendees
+-   Send and receive connection requests
+-   Real-time event chat
+-   Notifications
+-   User profile management
+-   Contact/support messaging
 
 ### 🎤 Organizer Features
 
-* Organizer authentication
-* Organizer dashboard
-* Create events
-* Add event details and banner
-* Add speakers to events
-* Manage created events
-* View event registrations
-* Track event status
-* Receive notifications when events are approved or rejected
+-   Organizer authentication
+-   Organizer dashboard
+-   Create events
+-   Add event details and banners
+-   Add speakers to events
+-   Manage created events
+-   View event registrations
+-   Track event status
+-   Receive notifications when events are approved or rejected
 
 ### 🛡️ Admin Features
 
-* Secure admin login
-* Admin dashboard
-* View platform statistics
-* Manage events
-* Review pending events
-* Approve events
-* Reject events
-* Manage users
-* Manage organizers
-* Manage registrations
-* View contact messages
-* Monitor platform activities
+-   Secure admin login
+-   Admin dashboard
+-   View platform statistics
+-   Manage events
+-   Review pending events
+-   Approve or reject events
+-   Manage users
+-   Manage organizers
+-   Manage registrations
+-   View contact messages
+-   Monitor platform activities
 
 ### 💬 Real-Time Networking
 
-* Event-based chat rooms
-* Real-time messaging using Socket.IO
-* Attendee networking
-* Connection requests
-* Notifications for networking activities
+-   Event-based chat rooms
+-   Real-time messaging using Socket.IO
+-   Attendee networking
+-   Connection requests
+-   Notifications for networking activities
 
----
+------------------------------------------------------------------------
 
 ## 🛠️ Tech Stack
 
 ### Frontend
 
-* React.js
-* Vite
-* JavaScript
-* Tailwind CSS
-* React Router
-* Axios
-* Lucide React
-* React Icons
+-   React.js
+-   Vite
+-   JavaScript
+-   Tailwind CSS
+-   React Router
+-   Axios
+-   Lucide React
+-   React Icons
 
 ### Backend
 
-* Node.js
-* Express.js
-* RESTful APIs
-* Socket.IO
-* JWT Authentication
-* bcryptjs
-* Cookie Parser
-* CORS
+-   Node.js
+-   Express.js
+-   RESTful APIs
+-   Socket.IO
+-   JWT Authentication
+-   bcryptjs
+-   Cookie Parser
+-   CORS
 
 ### Database
 
-* MongoDB
-* Mongoose
-* MongoDB Atlas
+-   MongoDB
+-   Mongoose
+-   MongoDB Atlas
 
 ### Cloud & Deployment
 
-* Vercel — Frontend
-* Render — Backend
-* Cloudinary — Event image storage
+-   Vercel --- Frontend
+-   Render --- Backend
+-   Cloudinary --- Event image storage
 
 ### Development Tools
 
-* VS Code
-* Git
-* GitHub
-* Postman
-* npm
+-   VS Code
+-   Git
+-   GitHub
+-   Postman
+-   npm
 
----
+------------------------------------------------------------------------
 
 ## 🏗️ Project Architecture
 
-```text
+``` text
 ConnectEvent/
-│
 ├── client/
 │   ├── src/
 │   │   ├── components/
@@ -134,7 +140,6 @@ ConnectEvent/
 │   │   ├── services/
 │   │   ├── App.jsx
 │   │   └── main.jsx
-│   │
 │   ├── public/
 │   ├── package.json
 │   └── vite.config.js
@@ -152,100 +157,98 @@ ConnectEvent/
 └── README.md
 ```
 
----
+------------------------------------------------------------------------
 
 ## 🔐 Authentication & Authorization
 
-ConnectEvent uses **JWT-based authentication** and role-based authorization.
+ConnectEvent uses **JWT-based authentication** and role-based
+authorization.
 
 The platform supports different user roles:
 
-```text
+``` text
 User
-  ↓
-Browse Events
-Register
-Network
-Chat
+ ├── Browse events
+ ├── Register for events
+ ├── Network with attendees
+ └── Chat
 
 Organizer
-  ↓
-Create Events
-Manage Events
-View Registrations
+ ├── Create events
+ ├── Manage events
+ └── View registrations
 
 Admin
-  ↓
-Manage Platform
-Approve / Reject Events
-Manage Users
-Manage Organizers
-View Registrations
+ ├── Manage the platform
+ ├── Approve or reject events
+ ├── Manage users and organizers
+ └── View registrations
 ```
 
-Protected routes ensure that users can only access functionality permitted for their role.
+Protected routes ensure that users can only access functionality
+permitted for their role.
 
----
+------------------------------------------------------------------------
 
 ## 🎫 Event Management
 
 Organizers can create events with information such as:
 
-* Event title
-* Description
-* Category
-* Venue
-* Location
-* Date
-* Time
-* Ticket price
-* Total seats
-* Event banner
-* Speakers
+-   Event title
+-   Description
+-   Category
+-   Venue
+-   Location
+-   Date
+-   Time
+-   Ticket price
+-   Total seats
+-   Event banner
+-   Speakers
 
 Events follow an approval workflow:
 
-```text
+``` text
 Organizer Creates Event
-        ↓
-      Pending
-        ↓
-   Admin Review
-      ↙     ↘
- Approved   Rejected
-    ↓
+          ↓
+        Pending
+          ↓
+      Admin Review
+       ↙       ↘
+  Approved    Rejected
+      ↓
 Visible to Users
 ```
 
 Only approved events are displayed publicly.
 
----
+------------------------------------------------------------------------
 
 ## 🎤 Speaker Management
 
-Organizers can add speakers while creating an event.
+Organizers can add speakers while creating an event. Speaker information
+can highlight guests, professionals, industry experts, or presenters
+participating in an event.
 
-Speaker information can be used to highlight important guests, professionals, industry experts, or presenters participating in the event.
+ConnectEvent can support event types such as:
 
-This makes the platform suitable for:
+-   Business conferences
+-   Technology events
+-   Networking events
+-   Workshops
+-   Seminars
+-   Startup events
+-   Career events
 
-* Business conferences
-* Technology events
-* Networking events
-* Workshops
-* Seminars
-* Startup events
-* Career events
-
----
+------------------------------------------------------------------------
 
 ## 💬 Real-Time Chat
 
 ConnectEvent uses **Socket.IO** to provide real-time communication.
+Users joining an event can communicate through event-specific chat
+rooms.
 
-Users joining an event can communicate through event-specific chat rooms.
-
-```text
+``` text
 User
   ↓
 Join Event
@@ -263,64 +266,54 @@ Event Participants
 
 Messages are also stored in the database for persistence.
 
----
+------------------------------------------------------------------------
 
 ## 🔔 Notifications
 
-The platform provides notifications for important activities such as:
+The platform provides notifications for important activities, such as:
 
-* Event approval
-* Event rejection
-* Connection requests
-* Networking activities
-* Other platform updates
+-   Event approval
+-   Event rejection
+-   Connection requests
+-   Networking activities
+-   Other platform updates
 
----
+------------------------------------------------------------------------
 
 ## 📊 Admin Dashboard
 
 The admin dashboard provides an overview of platform activity.
-
 Administrators can manage:
 
-* 👥 Users
-* 🎤 Organizers
-* 🎟️ Events
-* 📋 Registrations
-* 💬 Contact messages
-* 📈 Platform statistics
+-   👥 Users
+-   🎤 Organizers
+-   🎟️ Events
+-   📋 Registrations
+-   💬 Contact messages
+-   📈 Platform statistics
 
-The event management system allows admins to review pending events before they become visible to users.
+The event management system allows admins to review pending events
+before they become visible to users.
 
----
+------------------------------------------------------------------------
 
 ## ☁️ Deployment
 
-### Frontend
+-   **Frontend:** React application deployed on Vercel
+-   **Backend:** Node.js/Express application deployed on Render
+-   **Database:** MongoDB Atlas
+-   **Image storage:** Cloudinary
 
-The React frontend is deployed using **Vercel**.
-
-### Backend
-
-The Node.js/Express backend is deployed using **Render**.
-
-### Database
-
-The application uses **MongoDB Atlas** for cloud database management.
-
-### Image Storage
-
-Event banners and uploaded images are stored using **Cloudinary**.
-
----
+------------------------------------------------------------------------
 
 ## ⚙️ Environment Variables
 
-For security reasons, environment variables are **not included in this repository**.
+For security reasons, actual environment variables and credentials
+should not be committed to the repository.
 
-### Backend `.env`
+### Backend `server/.env`
 
-```env
+``` env
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
@@ -329,92 +322,78 @@ CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
-### Frontend `.env`
-
-If your frontend uses environment variables, create:
-
-```env
-VITE_API_URL=your_backend_api_url
-```
-
-> ⚠️ Never commit your actual `.env` file, MongoDB credentials, JWT secret, or Cloudinary secret keys to GitHub.
-
----
+------------------------------------------------------------------------
 
 ## 🚀 Run the Project Locally
 
 ### 1. Clone the Repository
 
-```bash
-git clone YOUR_GITHUB_REPOSITORY_URL
-```
-
-```bash
+``` bash
+git clone https://github.com/Krishnavm-11/connect-event
 cd ConnectEvent
 ```
 
 ### 2. Install Backend Dependencies
 
-```bash
+``` bash
 cd server
 npm install
 ```
 
 ### 3. Configure Backend Environment Variables
 
-Create a `.env` file inside the `server` folder:
+Create a `.env` file inside the `server` folder and add the required
+values shown in the [Environment Variables](#️-environment-variables)
+section.
 
-```env
-PORT=5000
-MONGO_URI=your_mongodb_uri
-JWT_SECRET=your_secret
-CLOUDINARY_CLOUD_NAME=your_cloudinary_name
-CLOUDINARY_API_KEY=your_cloudinary_key
-CLOUDINARY_API_SECRET=your_cloudinary_secret
-```
+### 4. Start the Backend
 
-### 4. Start Backend
-
-```bash
+``` bash
 npm run dev
 ```
 
-The backend will run on:
+The backend is expected to run at:
 
-```text
+``` text
 http://localhost:5000
 ```
 
 ### 5. Install Frontend Dependencies
 
-Open another terminal:
+Open a second terminal at the project root:
 
-```bash
+``` bash
 cd client
 npm install
 ```
 
-### 6. Start Frontend
+### 6. Configure the Frontend API URL
 
-```bash
+If required by your application, set `VITE_API_URL` in `client/.env` to
+your local backend API URL. Use the exact format expected by your API
+service configuration.
+
+### 7. Start the Frontend
+
+``` bash
 npm run dev
 ```
 
-The frontend will run on:
+The frontend is expected to run at:
 
-```text
+``` text
 http://localhost:5173
 ```
 
----
+------------------------------------------------------------------------
 
 ## 🧪 API Testing
 
-The backend APIs can be tested using **Postman**.
+Backend APIs can be tested using **Postman**.
 
 Main API modules include:
 
-```text
+``` text
 /api/auth
 /api/events
 /api/admin
@@ -425,83 +404,82 @@ Main API modules include:
 /api/contact
 ```
 
----
+The exact endpoints depend on the route configuration in the backend.
+
+------------------------------------------------------------------------
 
 ## 🔒 Security
 
-The application implements several security practices:
+The application uses security practices including:
 
-* JWT authentication
-* Password hashing using bcryptjs
-* Protected API routes
-* Role-based authorization
-* Admin authorization
-* Environment variables for sensitive credentials
-* CORS configuration
-* Secure cloud image storage
+-   JWT authentication
+-   Password hashing using bcryptjs
+-   Protected API routes
+-   Role-based authorization
+-   Admin authorization
+-   Environment variables for sensitive credentials
+-   CORS configuration
+-   Cloud-based image storage
 
----
+------------------------------------------------------------------------
 
 ## 📱 Responsive Design
 
 ConnectEvent is designed to work across different screen sizes:
 
-* 💻 Desktop
-* 💻 Laptop
-* 📱 Mobile
-* 📱 Tablet
+-   Desktop
+-   Laptop
+-   Mobile
+-   Tablet
 
-The UI uses responsive Tailwind CSS utilities to provide a consistent experience across devices.
+The UI uses responsive Tailwind CSS utilities to provide a consistent
+experience across devices.
 
----
+------------------------------------------------------------------------
 
 ## 🎯 Future Improvements
 
 Possible future enhancements include:
 
-* Online event ticket payments
-* QR-code based event tickets
-* Email notifications
-* Google authentication
-* Advanced event recommendations
-* Location-based event discovery
-* Organizer analytics
-* Event reminders
-* Attendee networking suggestions
-* Enhanced real-time messaging
-* Event reviews and ratings
+-   Online event ticket payments
+-   QR-code-based event tickets
+-   Email notifications
+-   Google authentication
+-   Advanced event recommendations
+-   Location-based event discovery
+-   Organizer analytics
+-   Event reminders
+-   Attendee networking suggestions
+-   Enhanced real-time messaging
+-   Event reviews and ratings
 
----
+------------------------------------------------------------------------
 
 ## 📚 What I Learned
 
 Through this project, I gained practical experience with:
 
-* Building a full-stack MERN application
-* Designing REST APIs
-* MongoDB data modeling
-* JWT authentication
-* Role-based authorization
-* React component architecture
-* Protected routes
-* Real-time communication using Socket.IO
-* Cloudinary image uploads
-* API integration using Axios
-* Admin dashboard development
-* Deployment using Vercel and Render
-* Environment variable management
-* Debugging production deployment issues
+-   Building a full-stack MERN application
+-   Designing REST APIs
+-   MongoDB data modeling
+-   JWT authentication
+-   Role-based authorization
+-   React component architecture
+-   Protected routes
+-   Real-time communication using Socket.IO
+-   Cloudinary image uploads
+-   API integration using Axios
+-   Admin dashboard development
+-   Deployment using Vercel and Render
+-   Environment variable management
+-   Debugging production deployment issues
 
----
+------------------------------------------------------------------------
 
 ## 👨‍💻 Developer
 
-**Krishna**
-
+**Krishna**\
 MERN Stack Developer
 
-Passionate about building practical, responsive and user-friendly full-stack web applications.
-
----
-
-
+Passionate about building practical, responsive, and user-friendly
+full-stack web applications.
