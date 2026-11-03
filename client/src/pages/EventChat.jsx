@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import io from "socket.io-client";
@@ -6,7 +7,9 @@ import API from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { Send, X } from "lucide-react";
 
-const socket = io("https://connect-event-backend.onrender.com");
+const socket = io("https://connect-event-backend.onrender.com", {
+  autoConnect: false,
+});
 
 function EventChat() {
   const { id } = useParams();
@@ -16,40 +19,97 @@ function EventChat() {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
 
+  // Prevent duplicate messages.
+  const addMessage = (newMessage) => {
+    setMessages((prev) => {
+      const alreadyExists = prev.some(
+        (msg) => msg._id === newMessage._id
+      );
+
+      if (alreadyExists) return prev;
+
+      return [...prev, newMessage];
+    });
+  };
+
+  // Get previously saved messages.
   const getOldMessages = async () => {
     try {
       const res = await API.get(`/messages/event/${id}`);
-      setMessages(res.data);
+
+      setMessages((prev) => {
+        const combined = [...res.data, ...prev];
+        const uniqueMessages = Array.from(
+          new Map(
+            combined.map((msg) => [msg._id, msg])
+          ).values()
+        );
+
+        return uniqueMessages.sort(
+          (a, b) =>
+            new Date(a.createdAt) - new Date(b.createdAt)
+        );
+      });
     } catch (error) {
-      console.log(error.response?.data?.message || error.message);
+      console.error(
+        "Unable to load messages:",
+        error.response?.data?.message || error.message
+      );
     }
   };
 
+  // Send message.
   const sendMessage = () => {
-    if (!message.trim()) return;
+    if (!message.trim() || !user?._id || !socket.connected) {
+      return;
+    }
 
     socket.emit("send_message", {
       sender: user._id,
-      event: id,
-      message,
+      eventId: id,
+      message: message.trim(),
     });
 
     setMessage("");
   };
 
   useEffect(() => {
+    if (!id || !user?._id) return;
+
+    const handleConnect = () => {
+      console.log("Chat connected:", socket.id);
+
+      socket.emit("join_event", id);
+    };
+
+    const handleReceiveMessage = (newMessage) => {
+      addMessage(newMessage);
+    };
+
+    const handleMessageError = (error) => {
+      console.error("Message error:", error.message);
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("receive_message", handleReceiveMessage);
+    socket.on("message_error", handleMessageError);
+
+    socket.connect();
+
+    if (socket.connected) {
+      handleConnect();
+    }
+
     getOldMessages();
 
-    socket.emit("join_event", id);
-
-    socket.on("receive_message", (newMessage) => {
-      setMessages((prev) => [...prev, newMessage]);
-    });
-
     return () => {
-      socket.off("receive_message");
+      socket.off("connect", handleConnect);
+      socket.off("receive_message", handleReceiveMessage);
+      socket.off("message_error", handleMessageError);
+
+      socket.disconnect();
     };
-  }, [id]);
+  }, [id, user?._id]);
 
   return (
     <>
@@ -60,7 +120,6 @@ function EventChat() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
 
             {/* Header */}
-
             <div className="flex items-center justify-between p-6 border-b border-slate-800">
               <div>
                 <h1 className="text-2xl font-bold">
@@ -74,9 +133,9 @@ function EventChat() {
 
               <button
                 onClick={() => {
-                  if (user.role === "admin") {
+                  if (user?.role === "admin") {
                     navigate("/admin");
-                  } else if (user.role === "organizer") {
+                  } else if (user?.role === "organizer") {
                     navigate("/organizer");
                   } else {
                     navigate("/dashboard");
@@ -89,30 +148,33 @@ function EventChat() {
               </button>
             </div>
 
+            {/* Messages */}
             <div className="h-[65vh] overflow-y-auto p-6 space-y-4">
               {messages.length === 0 ? (
                 <p className="text-gray-400 text-center mt-20">
                   No messages yet. Start the conversation!
                 </p>
               ) : (
-                messages.map((msg, index) => {
+                messages.map((msg) => {
+                  const senderId =
+                    msg.sender?._id || msg.sender;
+
                   const isMine =
-                    msg.sender?._id === user._id ||
-                    msg.sender === user._id;
+                    senderId?.toString() === user?._id?.toString();
 
                   return (
                     <div
-                      key={index}
-                      className={`flex ${isMine
-                        ? "justify-end"
-                        : "justify-start"
-                        }`}
+                      key={msg._id}
+                      className={`flex ${
+                        isMine ? "justify-end" : "justify-start"
+                      }`}
                     >
                       <div
-                        className={`max-w-xs px-4 py-3 rounded-2xl ${isMine
-                          ? "bg-blue-500 text-white"
-                          : "bg-slate-800 text-gray-200"
-                          }`}
+                        className={`max-w-xs px-4 py-3 rounded-2xl break-words ${
+                          isMine
+                            ? "bg-blue-500 text-white"
+                            : "bg-slate-800 text-gray-200"
+                        }`}
                       >
                         {!isMine && (
                           <p className="text-xs text-blue-400 mb-1">
@@ -128,6 +190,7 @@ function EventChat() {
               )}
             </div>
 
+            {/* Message Input */}
             <div className="p-5 border-t border-slate-800 flex gap-3">
               <input
                 type="text"
@@ -144,7 +207,8 @@ function EventChat() {
 
               <button
                 onClick={sendMessage}
-                className="bg-blue-500 hover:bg-blue-600 px-5 rounded-xl flex items-center gap-2 transition"
+                disabled={!message.trim()}
+                className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 px-5 rounded-xl flex items-center gap-2 transition"
               >
                 <Send size={18} />
                 Send

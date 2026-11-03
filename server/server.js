@@ -81,15 +81,22 @@ app.use("/api/contact", contactRoutes);
 // ==============================
 // SOCKET.IO CHAT
 // ==============================
+
 io.on("connection", (socket) => {
   console.log("Socket connected:", socket.id);
 
+  // Join the correct event chat room.
   socket.on("join_event", (eventId) => {
-    if (eventId) {
-      socket.join(`/events/${eventId}/chat`);
-    }
+    if (!eventId) return;
+
+    const room = `/events/${eventId}/chat`;
+
+    socket.join(room);
+
+    console.log(`${socket.id} joined room: ${room}`);
   });
 
+  // Receive and save messages.
   socket.on("send_message", async (data) => {
     try {
       const { eventId, sender, message } = data || {};
@@ -98,6 +105,7 @@ io.on("connection", (socket) => {
         socket.emit("message_error", {
           message: "Event, sender, and message are required",
         });
+
         return;
       }
 
@@ -107,13 +115,16 @@ io.on("connection", (socket) => {
         message: message.trim(),
       });
 
-      const populatedMessage = await Message.findById(savedMessage._id)
-        .populate("sender", "name email");
+      const populatedMessage = await Message.findById(
+        savedMessage._id
+      ).populate("sender", "name email profession profileImage");
 
-      io.to(`/events/${eventId}/chat`).emit(
-        "receive_message",
-        populatedMessage
-      );
+      const room = `/events/${eventId}/chat`;
+
+      // Send the saved message to everyone in this event chat.
+      io.to(room).emit("receive_message", populatedMessage);
+
+      console.log("Message saved and sent:", populatedMessage.message);
     } catch (error) {
       console.error("Socket message error:", error);
 
@@ -127,6 +138,7 @@ io.on("connection", (socket) => {
     console.log("Socket disconnected:", socket.id);
   });
 });
+
 
 // ==============================
 // ERROR HANDLER
