@@ -316,14 +316,15 @@ function CreateEvent() {
                           onChange={handleChange}
                           className={`${inputClass} pl-11 [color-scheme:dark]`}
                         />
-                        <p className="mt-2 text-xs leading-5 text-blue-300">
+                                                <p className="mt-2 text-xs leading-5 text-blue-300">
                           Schedule your event at least 5 days in advance.
                         </p>
                       </div>
+                    </div>
 
-                      <div>
-                        <label className={labelClass}>
-                          Start time *
+                    <div>
+                      <label className={labelClass}>
+                        Start time *
                         </label>
 
                         <div className="relative">
