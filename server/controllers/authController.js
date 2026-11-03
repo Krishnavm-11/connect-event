@@ -1,4 +1,3 @@
-
 import User from "../models/User.js";
 import EmailOTP from "../models/EmailOTP.js";
 import bcrypt from "bcryptjs";
@@ -33,6 +32,7 @@ const publicUser = (user) => ({
   token: generateToken(user._id),
 });
 
+// Registration OTP helper
 const createAndSendOTP = async ({
   email,
   purpose,
@@ -79,13 +79,18 @@ const createAndSendOTP = async ({
   }
 };
 
+// Registration OTP verification helper
 const verifyOTP = async (email, purpose, otp) => {
   const record = await EmailOTP.findOne({ email, purpose });
 
   if (!record || record.expiresAt.getTime() <= Date.now()) {
-    if (record) await EmailOTP.deleteOne({ _id: record._id });
+    if (record) {
+      await EmailOTP.deleteOne({ _id: record._id });
+    }
 
-    const error = new Error("OTP expired or not found. Request a new code.");
+    const error = new Error(
+      "OTP expired or not found. Request a new code."
+    );
     error.statusCode = 400;
     throw error;
   }
@@ -113,11 +118,11 @@ const verifyOTP = async (email, purpose, otp) => {
   }
 
   await EmailOTP.deleteOne({ _id: record._id });
+
   return record;
 };
 
-// STEP 1: Validate registration data and send OTP.
-// The user account is NOT created at this stage.
+// STEP 1: Register and send OTP
 export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role, interests } = req.body;
@@ -137,7 +142,6 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // Public registration must never create admin accounts.
     const selectedRole = role || "user";
 
     if (!["user", "organizer"].includes(selectedRole)) {
@@ -146,7 +150,9 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    const userExists = await User.findOne({ email: normalizedEmail });
+    const userExists = await User.findOne({
+      email: normalizedEmail,
+    });
 
     if (userExists) {
       return res.status(409).json({
@@ -175,8 +181,6 @@ export const registerUser = async (req, res) => {
       email: normalizedEmail,
       password: await bcrypt.hash(password, 10),
       role: selectedRole,
-      // Profession remains supported for existing profile features,
-      // but registration no longer asks for it.
       profession: "",
       interests: interestsList
         .filter((item) => typeof item === "string")
@@ -199,15 +203,14 @@ export const registerUser = async (req, res) => {
     console.error("Registration OTP error:", error.message);
 
     return res.status(error.statusCode || 500).json({
-      message:
-        error.statusCode
-          ? error.message
-          : "Unable to send verification email. Check your email configuration and try again.",
+      message: error.statusCode
+        ? error.message
+        : "Unable to send verification email. Check your email configuration and try again.",
     });
   }
 };
 
-// STEP 2: Verify registration OTP, then create the account.
+// STEP 2: Verify registration OTP and create account
 export const verifyRegistrationOTP = async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
@@ -228,7 +231,6 @@ export const verifyRegistrationOTP = async (req, res) => {
       });
     }
 
-    // Check again in case another registration completed meanwhile.
     const userExists = await User.findOne({ email });
 
     if (userExists) {
@@ -253,14 +255,13 @@ export const verifyRegistrationOTP = async (req, res) => {
   }
 };
 
-// STEP 1: Validate password and send a login OTP.
-// Do not issue the JWT yet.
+// LOGIN: Email and password only. No OTP.
 export const loginUser = async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
     const { password } = req.body;
 
-    if (!email || typeof password !== "string") {
+    if (!email || typeof password !== "string" || !password) {
       return res.status(400).json({
         message: "Email and password are required",
       });
@@ -274,65 +275,28 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    await createAndSendOTP({
-      email,
-      purpose: "login",
-    });
-
-    return res.status(200).json({
-      message: "Login verification code sent to your email",
-      email,
-    });
+    // Generate JWT immediately after successful password verification.
+    return res.status(200).json(publicUser(user));
   } catch (error) {
-    console.error("Login OTP error:", error.message);
+    console.error("Login error:", error.message);
 
-    return res.status(error.statusCode || 500).json({
-      message: error.statusCode
-        ? error.message
-        : "Unable to send verification email. Try again later.",
+    return res.status(500).json({
+      message: "Unable to login. Please try again.",
     });
   }
 };
 
-// STEP 2: Verify login OTP and issue the JWT.
-export const verifyLoginOTP = async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body.email);
-    const { otp } = req.body;
-
-    if (!email || typeof otp !== "string") {
-      return res.status(400).json({
-        message: "Email and OTP are required",
-      });
-    }
-
-    await verifyOTP(email, "login", otp);
-
-    // Ensure the account still exists after OTP verification.
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(401).json({
-        message: "Account not found. Please log in again.",
-      });
-    }
-
-    return res.json(publicUser(user));
-  } catch (error) {
-    console.error("Login verification error:", error.message);
-
-    return res.status(error.statusCode || 500).json({
-      message: error.statusCode
-        ? error.message
-        : "Unable to verify login",
-    });
-  }
-};
-
-// Resend endpoints use the same credentials/data as the initial request.
+// Resend registration OTP
 export const resendRegistrationOTP = async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Email is required",
+      });
+    }
+
     const record = await EmailOTP.findOne({
       email,
       purpose: "register",
@@ -356,43 +320,9 @@ export const resendRegistrationOTP = async (req, res) => {
       registrationData: record.registrationData,
     });
 
-    return res.json({ message: "A new OTP has been sent" });
-  } catch (error) {
-    return res.status(error.statusCode || 500).json({
-      message: error.statusCode
-        ? error.message
-        : "Unable to resend OTP",
+    return res.json({
+      message: "A new OTP has been sent",
     });
-  }
-};
-
-export const resendLoginOTP = async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body.email);
-
-    // Only resend when a valid login OTP session already exists.
-    const record = await EmailOTP.findOne({
-      email,
-      purpose: "login",
-    });
-
-    if (!record) {
-      return res.status(400).json({
-        message: "Login session expired. Enter your password again.",
-      });
-    }
-
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(401).json({
-        message: "Invalid login session",
-      });
-    }
-
-    await createAndSendOTP({ email, purpose: "login" });
-
-    return res.json({ message: "A new OTP has been sent" });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
       message: error.statusCode
