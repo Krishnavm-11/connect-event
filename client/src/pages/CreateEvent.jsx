@@ -307,7 +307,6 @@ function CreateEvent() {
                           size={17}
                           className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
                         />
-
                         <input
                           required
                           type="date"
@@ -317,78 +316,76 @@ function CreateEvent() {
                           onChange={handleChange}
                           className={`${inputClass} pl-11 [color-scheme:dark]`}
                         />
+                        <p className="mt-2 text-xs leading-5 text-blue-300">
+                          Schedule your event at least 5 days in advance.
+                        </p>
                       </div>
 
-                      <p className="mt-2 text-xs leading-5 text-blue-300">
-                        Schedule your event at least 5 days in advance.
-                      </p>
-                    </div>
+                      <div>
+                        <label className={labelClass}>
+                          Start time *
+                        </label>
 
-                    <div>
-                      <label className={labelClass}>
-                        Start time *
-                      </label>
+                        <div className="relative">
+                          <Clock3
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+                          />
 
-                      <div className="relative">
-                        <Clock3
-                          size={17}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                        />
-
-                        <input
-                          required
-                          type="time"
-                          name="time"
-                          value={formData.time}
-                          onChange={handleChange}
-                          className={`${inputClass} pl-11 [color-scheme:dark]`}
-                        />
+                          <input
+                            required
+                            type="time"
+                            name="time"
+                            value={formData.time}
+                            onChange={handleChange}
+                            className={`${inputClass} pl-11 [color-scheme:dark]`}
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div>
-                      <label className={labelClass}>
-                        Price (₹) *
-                      </label>
-
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        name="price"
-                        value={formData.price}
-                        onChange={handleChange}
-                        className={inputClass}
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Total seats *
-                      </label>
-
-                      <div className="relative">
-                        <Users
-                          size={17}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                        />
+                      <div>
+                        <label className={labelClass}>
+                          Price (₹) *
+                        </label>
 
                         <input
                           required
                           type="number"
-                          min="1"
-                          step="1"
-                          name="totalSeats"
-                          value={formData.totalSeats}
+                          min="0"
+                          step="0.01"
+                          name="price"
+                          value={formData.price}
                           onChange={handleChange}
-                          placeholder="e.g. 100"
-                          className={`${inputClass} pl-11`}
+                          className={inputClass}
                         />
+                      </div>
+
+                      <div>
+                        <label className={labelClass}>
+                          Total seats *
+                        </label>
+
+                        <div className="relative">
+                          <Users
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+                          />
+
+                          <input
+                            required
+                            type="number"
+                            min="1"
+                            step="1"
+                            name="totalSeats"
+                            value={formData.totalSeats}
+                            onChange={handleChange}
+                            placeholder="e.g. 100"
+                            className={`${inputClass} pl-11`}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
               </section>
 
               <section className="border-t border-slate-800 pt-7">

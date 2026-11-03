@@ -2,7 +2,7 @@
 import Event from "../models/Event.js";
 import cloudinary from "../config/cloudinary.js";
 
-// Use the event calendar date in Indian Standard Time.
+// Get the current date in Indian Standard Time.
 const getIndiaDateKey = (date = new Date()) => {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -12,22 +12,76 @@ const getIndiaDateKey = (date = new Date()) => {
   }).format(date);
 };
 
+// Validate event date (HTML date input: YYYY-MM-DD).
+const validateEventDate = (dateValue) => {
+  if (
+    typeof dateValue !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+  ) {
+    return {
+      valid: false,
+      message: "Please select a valid event date",
+    };
+  }
+
+  const [year, month, day] = dateValue.split("-").map(Number);
+
+  // Validate actual calendar date.
+  const selectedDate = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    selectedDate.getUTCFullYear() !== year ||
+    selectedDate.getUTCMonth() !== month - 1 ||
+    selectedDate.getUTCDate() !== day
+  ) {
+    return {
+      valid: false,
+      message: "Please select a valid event date",
+    };
+  }
+
+  // Compare Indian calendar dates to avoid timezone issues.
+  const today = getIndiaDateKey();
+
+  if (dateValue < today) {
+    return {
+      valid: false,
+      message:
+        "Past dates are not allowed. Please select today or a future date.",
+    };
+  }
+
+  return {
+    valid: true,
+    date: new Date(`${dateValue}T00:00:00.000Z`),
+  };
+};
+
 const isEventRegistrationOpen = (eventDate) => {
   if (!eventDate) return false;
 
-  // Registration remains open until the day before the event.
+  // Existing behavior: registration remains open until the day before the event.
   return getIndiaDateKey(eventDate) > getIndiaDateKey();
 };
 
 // Convert today's Indian calendar date into a UTC date boundary.
-// This works with event dates saved from HTML date inputs.
 const getTodayDateBoundary = () => {
   const todayKey = getIndiaDateKey();
   return new Date(`${todayKey}T00:00:00.000Z`);
 };
 
+// CREATE EVENT
 export const createEvent = async (req, res) => {
   try {
+    // Validate date before uploading banner or creating event.
+    const dateValidation = validateEventDate(req.body.date);
+
+    if (!dateValidation.valid) {
+      return res.status(400).json({
+        message: dateValidation.message,
+      });
+    }
+
     let banner = "";
 
     if (req.file) {
@@ -59,7 +113,7 @@ export const createEvent = async (req, res) => {
       category: req.body.category,
       venue: req.body.venue,
       location: req.body.location,
-      date: req.body.date,
+      date: dateValidation.date,
       time: req.body.time,
       price: req.body.price,
       totalSeats: req.body.totalSeats,
@@ -71,13 +125,15 @@ export const createEvent = async (req, res) => {
 
     return res.status(201).json(event);
   } catch (error) {
+    console.error("Create event error:", error);
+
     return res.status(500).json({
       message: error.message,
     });
   }
 };
 
-// Public event listing: exclude today's and past events.
+// GET PUBLIC EVENTS
 export const getEvents = async (req, res) => {
   try {
     const events = await Event.find({
@@ -87,7 +143,6 @@ export const getEvents = async (req, res) => {
       .populate("organizer", "name email profession")
       .sort({ createdAt: -1 });
 
-    // Additional date check protects against date-boundary differences.
     const activeEvents = events.filter((event) =>
       isEventRegistrationOpen(event.date)
     );
@@ -100,7 +155,7 @@ export const getEvents = async (req, res) => {
   }
 };
 
-// Public event details: do not serve expired events.
+// GET EVENT BY ID
 export const getEventById = async (req, res) => {
   try {
     const event = await Event.findOne({
@@ -122,6 +177,7 @@ export const getEventById = async (req, res) => {
   }
 };
 
+// UPDATE EVENT
 export const updateEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -139,6 +195,21 @@ export const updateEvent = async (req, res) => {
       return res.status(403).json({
         message: "Not allowed",
       });
+    }
+
+    // Validate date only when a new date is submitted.
+    let updatedDate = event.date;
+
+    if (req.body.date !== undefined) {
+      const dateValidation = validateEventDate(req.body.date);
+
+      if (!dateValidation.valid) {
+        return res.status(400).json({
+          message: dateValidation.message,
+        });
+      }
+
+      updatedDate = dateValidation.date;
     }
 
     let speakers = event.speakers;
@@ -171,7 +242,7 @@ export const updateEvent = async (req, res) => {
     event.category = req.body.category || event.category;
     event.venue = req.body.venue || event.venue;
     event.location = req.body.location || event.location;
-    event.date = req.body.date || event.date;
+    event.date = updatedDate;
     event.time = req.body.time || event.time;
     event.price = req.body.price ?? event.price;
     event.totalSeats = req.body.totalSeats || event.totalSeats;
@@ -184,12 +255,15 @@ export const updateEvent = async (req, res) => {
 
     return res.json(updatedEvent);
   } catch (error) {
+    console.error("Update event error:", error);
+
     return res.status(500).json({
       message: error.message,
     });
   }
 };
 
+// DELETE EVENT
 export const deleteEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -221,8 +295,7 @@ export const deleteEvent = async (req, res) => {
   }
 };
 
-// Organizer dashboard: retain all the organizer's events,
-// including past events, for management and reporting.
+// ORGANIZER DASHBOARD
 export const getMyOrganizerEvents = async (req, res) => {
   try {
     const events = await Event.find({
