@@ -24,7 +24,6 @@ import AdminEvents from "./pages/AdminEvents";
 import AdminUsers from "./pages/AdminUsers";
 import AdminOrganizers from "./pages/AdminOrganizers";
 import AdminRegistrations from "./pages/AdminRegistrations";
-import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminContacts from "./pages/AdminContacts";
 
 function App() {
@@ -88,11 +87,6 @@ function App() {
         <Route
           path="/admin/registrations"
           element={<AdminRegistrations />}
-        />
-
-        <Route
-          path="/admin/analytics"
-          element={<AdminAnalytics />}
         />
 
         <Route path="/admin/contacts" element={<AdminContacts />} />
